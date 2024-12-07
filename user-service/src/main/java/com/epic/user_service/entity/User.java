@@ -36,6 +36,6 @@ public class User {
     @Column(name = "CONTACT_NO", unique = true)
     private String contactNumber;
 
-    @Column(name = "TOKEN")
-    private String token;
+//    @Column(name = "TOKEN")
+//    private String token;
 }

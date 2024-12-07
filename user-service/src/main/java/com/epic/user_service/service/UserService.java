@@ -4,6 +4,7 @@ import com.epic.user_service.config.InitConfig;
 import com.epic.user_service.dto.*;
 import com.epic.user_service.entity.User;
 import com.epic.user_service.repository.UserRepository;
+import com.epic.user_service.util.JWTGenerator;
 import com.epic.user_service.util.PasswordUtil;
 import com.epic.user_service.util.RequestNullChecker;
 import lombok.RequiredArgsConstructor;
@@ -116,6 +117,7 @@ public class UserService {
     public ResponseEntity<CommonResponse> loginUser(UserLoginReq userLoginReq){
         CommonResponse loginResponse = new CommonResponse();
         RequestNullChecker requestNullChecker = new RequestNullChecker();
+        JWTGenerator jwtGenerator = new JWTGenerator();
 
         //validate the request body
         if(requestNullChecker.isNullOrEmpty(userLoginReq.getUsername(), userLoginReq.getPassword())){
@@ -140,12 +142,8 @@ public class UserService {
                 //password match flow
                 log.info("Password is correct");
 
-                //saving the generated token in the database to make stateful
-                String token = UUID.randomUUID().toString();
-                String encodedToken = Base64.getEncoder().encodeToString(token.getBytes());
-                //todo: Base64.getDecoder().decode(encodedToken); Decoding
-                existingUser.setToken(encodedToken);
-                userRepository.save(existingUser);
+                //generating JWT Token
+                String token = jwtGenerator.generateToken(userLoginReq.getUsername());
 
                 loginResponse.setCode(InitConfig.SUCCESS);
                 loginResponse.setTitle(InitConfig.TITLE_SUCCESS);
