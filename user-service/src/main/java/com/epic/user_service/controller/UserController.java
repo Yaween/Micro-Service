@@ -1,5 +1,6 @@
 package com.epic.user_service.controller;
 
+import com.epic.user_service.config.InitConfig;
 import com.epic.user_service.dto.ChangePasswordReq;
 import com.epic.user_service.dto.CommonResponse;
 import com.epic.user_service.dto.UserLoginReq;
@@ -30,8 +31,8 @@ public class UserController {
         } catch (Exception e){
             log.info("An error occurred :", e);
 
-            registerResponse.setCode("Code");
-            registerResponse.setTitle("Failed");
+            registerResponse.setCode(InitConfig.REGISTRATION_FAILED);
+            registerResponse.setTitle(InitConfig.TITLE_FAILED);
             registerResponse.setMessage("Error occurred in the registration : " + e.getMessage());
             return ResponseEntity.badRequest().body(registerResponse);
         }
@@ -50,8 +51,8 @@ public class UserController {
         } catch (Exception e){
            log.info("An error occurred :", e);
 
-           loginResponse.setCode("Code");
-           loginResponse.setTitle("Failed");
+           loginResponse.setCode(InitConfig.LOGIN_FAILED);
+           loginResponse.setTitle(InitConfig.TITLE_FAILED);
            loginResponse.setMessage("Error occurred in the login : " + e.getMessage());
            return ResponseEntity.badRequest().body(loginResponse);
         }
@@ -70,8 +71,8 @@ public class UserController {
         } catch (Exception e){
             log.info("An error occurred : ", e);
 
-            changePWResponse.setCode("Code");
-            changePWResponse.setTitle("Failed");
+            changePWResponse.setCode(InitConfig.CHANGE_PW_FAILED);
+            changePWResponse.setTitle(InitConfig.TITLE_FAILED);
             changePWResponse.setMessage("Error occurred in the change password : " + e.getMessage());
             return ResponseEntity.badRequest().body(changePWResponse);
         }

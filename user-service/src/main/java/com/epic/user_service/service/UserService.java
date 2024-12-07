@@ -1,5 +1,6 @@
 package com.epic.user_service.service;
 
+import com.epic.user_service.config.InitConfig;
 import com.epic.user_service.dto.*;
 import com.epic.user_service.entity.User;
 import com.epic.user_service.repository.UserRepository;
@@ -32,8 +33,8 @@ public class UserService {
 
             log.info("Fields are missing in the request");
 
-            registerResponse.setCode("Code");
-            registerResponse.setTitle("Failed");
+            registerResponse.setCode(InitConfig.MISSING_FIELDS_REGISTRATION);
+            registerResponse.setTitle(InitConfig.TITLE_FAILED);
             registerResponse.setMessage("All fields are required.");
             return ResponseEntity.badRequest().body(registerResponse);
         }
@@ -42,8 +43,8 @@ public class UserService {
         if(userRepository.findByUsername(userRegisterReq.getUsername()).isPresent()){
             log.info("Username is already taken");
 
-            registerResponse.setCode("Code");
-            registerResponse.setTitle("Failed");
+            registerResponse.setCode(InitConfig.USERNAME_TAKEN);
+            registerResponse.setTitle(InitConfig.TITLE_FAILED);
             registerResponse.setMessage("Username is already taken.");
             return ResponseEntity.badRequest().body(registerResponse);
         }
@@ -52,8 +53,8 @@ public class UserService {
         if(userRepository.findByEmail(userRegisterReq.getEmail()).isPresent()){
             log.info("Email is already taken");
 
-            registerResponse.setCode("Code");
-            registerResponse.setTitle("Failed");
+            registerResponse.setCode(InitConfig.EMAIL_TAKEN);
+            registerResponse.setTitle(InitConfig.TITLE_FAILED);
             registerResponse.setMessage("Email is already taken.");
             return ResponseEntity.badRequest().body(registerResponse);
         }
@@ -62,8 +63,8 @@ public class UserService {
         if(userRepository.findByContactNumber(userRegisterReq.getContactNumber()).isPresent()){
             log.info("Contact Number is already taken");
 
-            registerResponse.setCode("Code");
-            registerResponse.setTitle("Failed");
+            registerResponse.setCode(InitConfig.CONTACT_NO_TAKEN);
+            registerResponse.setTitle(InitConfig.TITLE_FAILED);
             registerResponse.setMessage("Contact Number is already taken.");
             return ResponseEntity.badRequest().body(registerResponse);
         }
@@ -93,8 +94,8 @@ public class UserService {
             userRepository.save(user);
             log.info("User saved in the system successfully");
 
-            registerResponse.setCode("0000");
-            registerResponse.setTitle("Success");
+            registerResponse.setCode(InitConfig.SUCCESS);
+            registerResponse.setTitle(InitConfig.TITLE_SUCCESS);
             registerResponse.setMessage("User registered successfully");
             return ResponseEntity.ok(registerResponse);
 
@@ -102,8 +103,8 @@ public class UserService {
             //password is not met with the password policy
             log.info("Password is not valid with password policy");
 
-            registerResponse.setCode("Code");
-            registerResponse.setTitle("Failed");
+            registerResponse.setCode(InitConfig.PASSWORD_INVALID);
+            registerResponse.setTitle(InitConfig.TITLE_FAILED);
             registerResponse.setMessage("Password is invalid due to missing" + message);
             return ResponseEntity.badRequest().body(registerResponse);
         }
@@ -120,8 +121,8 @@ public class UserService {
         if(requestNullChecker.isNullOrEmpty(userLoginReq.getUsername(), userLoginReq.getPassword())){
             log.info("Login request consist of missing values");
 
-            loginResponse.setCode("Code");
-            loginResponse.setTitle("Failed");
+            loginResponse.setCode(InitConfig.MISSING_FIELDS_LOGIN);
+            loginResponse.setTitle(InitConfig.TITLE_FAILED);
             loginResponse.setMessage("Username or Password is missing");
             return ResponseEntity.badRequest().body(loginResponse);
         }
@@ -146,8 +147,8 @@ public class UserService {
                 existingUser.setToken(encodedToken);
                 userRepository.save(existingUser);
 
-                loginResponse.setCode("0000");
-                loginResponse.setTitle("Success");
+                loginResponse.setCode(InitConfig.SUCCESS);
+                loginResponse.setTitle(InitConfig.TITLE_SUCCESS);
                 loginResponse.setMessage("Login Successful");
                 loginResponse.setToken(new TokenData(token));
 
@@ -155,8 +156,8 @@ public class UserService {
                 //password mismatch flow
                 log.info("Entered password is incorrect");
 
-                loginResponse.setCode("Code");
-                loginResponse.setTitle("Failed");
+                loginResponse.setCode(InitConfig.PASSWORD_INCORRECT);
+                loginResponse.setTitle(InitConfig.TITLE_FAILED);
                 loginResponse.setMessage("Password is incorrect");
             }
 
@@ -164,8 +165,8 @@ public class UserService {
             //username not found flow
             log.info("Username not found");
 
-            loginResponse.setCode("Code");
-            loginResponse.setTitle("Failed");
+            loginResponse.setCode(InitConfig.INVALID_USERNAME);
+            loginResponse.setTitle(InitConfig.TITLE_FAILED);
             loginResponse.setMessage("Username is not valid");
         }
         return ResponseEntity.ok(loginResponse);
@@ -179,8 +180,8 @@ public class UserService {
                 changePasswordReq.getOldPassword(), changePasswordReq.getNewPassword())){
             log.info("Fields are missing");
 
-            changePWResponse.setCode("Code");
-            changePWResponse.setTitle("Failed");
+            changePWResponse.setCode(InitConfig.MISSING_FIELDS_FORGOT_PW);
+            changePWResponse.setTitle(InitConfig.TITLE_FAILED);
             changePWResponse.setMessage("Change password request has empty fields");
             return ResponseEntity.badRequest().body(changePWResponse);
         }
@@ -204,29 +205,29 @@ public class UserService {
                     userRepository.save(existingUser);
                     log.info("User saved successfully");
 
-                    changePWResponse.setCode("Code");
-                    changePWResponse.setTitle("Success");
+                    changePWResponse.setCode(InitConfig.SUCCESS);
+                    changePWResponse.setTitle(InitConfig.TITLE_SUCCESS);
                     changePWResponse.setMessage("Password changed successfully");
 
                 } else {
                     log.info("New Password does not follow password policy");
 
-                    changePWResponse.setCode("Code");
-                    changePWResponse.setTitle("Failed");
+                    changePWResponse.setCode(InitConfig.NEW_PASSWORD_INVALID);
+                    changePWResponse.setTitle(InitConfig.TITLE_FAILED);
                     changePWResponse.setMessage("New password is not valid :" + message);
                 }
             } else {
                 log.info("Old Password mismatch");
 
-                changePWResponse.setCode("Code");
-                changePWResponse.setTitle("Failed");
+                changePWResponse.setCode(InitConfig.OLD_PASSWORD_MISMATCH);
+                changePWResponse.setTitle(InitConfig.TITLE_FAILED);
                 changePWResponse.setMessage("Old password is incorrect");
             }
         } else {
             log.info("User is not found with the give username");
 
-            changePWResponse.setCode("Code");
-            changePWResponse.setTitle("Failed");
+            changePWResponse.setCode(InitConfig.USERNAME_INVALID);
+            changePWResponse.setTitle(InitConfig.TITLE_FAILED);
             changePWResponse.setMessage("Username is not found");
         }
         return ResponseEntity.ok(changePWResponse);
