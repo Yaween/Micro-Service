@@ -9,7 +9,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @Entity
-@Data
+//@Data
 @AllArgsConstructor
 @NoArgsConstructor
 @Table(name = "ORDER_DETAILS")
@@ -30,4 +30,44 @@ public class Order {
 
     @Column(name = "ORDER_STATUS")
     private String orderStatus;
+
+    public String getOrderId() {
+        return orderId;
+    }
+
+    public void setOrderId(String orderId) {
+        this.orderId = orderId;
+    }
+
+    public String getUsername() {
+        return username;
+    }
+
+    public void setUsername(String username) {
+        this.username = username;
+    }
+
+    public String getProductId() {
+        return productId;
+    }
+
+    public void setProductId(String productId) {
+        this.productId = productId;
+    }
+
+    public Integer getProductCount() {
+        return productCount;
+    }
+
+    public void setProductCount(Integer productCount) {
+        this.productCount = productCount;
+    }
+
+    public String getOrderStatus() {
+        return orderStatus;
+    }
+
+    public void setOrderStatus(String orderStatus) {
+        this.orderStatus = orderStatus;
+    }
 }
