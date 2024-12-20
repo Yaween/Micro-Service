@@ -7,9 +7,7 @@ import lombok.NoArgsConstructor;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class CreateRequestOrder {
-    private String username;
-    private String distributorId;
-    private String productId;
-    private String productCount;
+public class ReceiveOrderReqUpdate {
+    private String orderReqId;
+    private String option; //Success or Reject
 }

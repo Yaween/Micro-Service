@@ -4,10 +4,13 @@ import com.epic.retailer_service.client.DistributorServiceClient;
 import com.epic.retailer_service.client.UserServiceClient;
 import com.epic.retailer_service.dto.*;
 import com.epic.retailer_service.entity.AddDistributorReq;
+import com.epic.retailer_service.entity.OrderRequest;
 import com.epic.retailer_service.entity.Retailer;
 import com.epic.retailer_service.exception.DistributorReqNotFoundException;
+import com.epic.retailer_service.exception.OrderRequestNotFoundException;
 import com.epic.retailer_service.exception.RetailerNotFoundException;
 import com.epic.retailer_service.repository.AddDistributorReqRepository;
+import com.epic.retailer_service.repository.OrderRequestRepository;
 import com.epic.retailer_service.repository.RetailerRepository;
 import com.epic.retailer_service.util.RequestValidator;
 import com.epic.retailer_service.util.UniqueIdGenerator;
@@ -28,6 +31,7 @@ public class RetailerService {
     private final UserServiceClient userServiceClient;
     private final DistributorServiceClient distributorServiceClient;
     private final AddDistributorReqRepository addDistributorReqRepository;
+    private final OrderRequestRepository orderRequestRepository;
 
     /**
      * // Retailer adding to the retailer table
@@ -237,6 +241,7 @@ public class RetailerService {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(requestStatusCheckResponse);
         }
 
+        //extract userId from user service
         String userId = userServiceClient.retrieveUserId(sendUserIdRetrieve).getBody().getUserData().getUserId();
 
         if(userId == null){
@@ -399,10 +404,166 @@ public class RetailerService {
     /**
      * // Creating an order request
      */
-    public ResponseEntity<CommonResponse> createOrderRequest(CreateRequestOrder createRequestOrder){
-        //todo: Complete this
-        return null;
+    public ResponseEntity<CommonResponse> createOrderRequest(String authorizationHeader, CreateOrderReq createOrderReq){
+        CommonResponse createOrderReqResponse = new CommonResponse();
+        RequestValidator requestValidator = new RequestValidator();
+
+        if (authorizationHeader == null || authorizationHeader.isEmpty()) {
+            log.warn("Authorization header is missing or empty. Request cannot be processed.");
+
+            createOrderReqResponse.setCode("Code");
+            createOrderReqResponse.setTitle("Failed");
+            createOrderReqResponse.setMessage("Token is missing");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(createOrderReqResponse);
+        }
+
+        // Extract and validate the token
+        String token = authorizationHeader.substring(7);
+        boolean tokenValidity = requestValidator.validateReq(createOrderReq.getUsername(), "RETAILER", token);
+
+        if(!tokenValidity){
+            log.info("Token invalid or expired");
+
+            createOrderReqResponse.setCode("Code");
+            createOrderReqResponse.setTitle("Failed");
+            createOrderReqResponse.setMessage("Token is Invalid or Expired");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(createOrderReqResponse);
+        }
+
+        SendUserIdRetrieve sendUserIdRetrieve = new SendUserIdRetrieve(createOrderReq.getUsername());
+        String userId = userServiceClient.retrieveUserId(sendUserIdRetrieve).getBody().getUserData().getUserId();
+
+        if(userId == null || userId.isEmpty()){
+            log.info("User Id empty or null");
+
+            createOrderReqResponse.setCode("Code");
+            createOrderReqResponse.setTitle("Failed");
+            createOrderReqResponse.setMessage("Invalid Username");
+            return ResponseEntity.badRequest().body(createOrderReqResponse);
+        }
+
+        Retailer existingRetailer = retailerRepository.findByUserId(userId).
+                orElseThrow(()-> new RetailerNotFoundException("Retailer Not Found"));
+        String retailerId = existingRetailer.getId();
+
+        //set the order req to database
+        OrderRequest orderRequest = new OrderRequest();
+        orderRequest.setId(UniqueIdGenerator.generateUniqueId());
+        orderRequest.setRetailerId(retailerId);
+        orderRequest.setDistributorId(createOrderReq.getDistributorId());
+        orderRequest.setProductId(createOrderReq.getProductId());
+        orderRequest.setProductCount(createOrderReq.getProductCount());
+        orderRequest.setStatus("INITIALIZED");
+        OrderRequest savedReq = orderRequestRepository.save(orderRequest);
+        log.info("Order Req saved in database successfully");
+
+        //set the sending req
+        SendOrderReq sendOrderReq = new SendOrderReq();
+        sendOrderReq.setOrderId(savedReq.getId());
+        sendOrderReq.setRetailerId(savedReq.getRetailerId());
+        sendOrderReq.setDistributorId(savedReq.getDistributorId());
+        sendOrderReq.setProductId(savedReq.getProductId());
+        sendOrderReq.setProductCount(savedReq.getProductCount());
+
+        String code = distributorServiceClient.receiveOrderReq(sendOrderReq).getBody().getCode();
+
+        //todo: Introduce some other codes for specific errors
+        if (code.equals("0000")){ //0000 means distributor service has received the req and stored it
+            log.info("Request Success");
+
+            OrderRequest existingReq = orderRequestRepository.findById(savedReq.getId())
+                    .orElseThrow(null);
+            existingReq.setStatus("RECEIVED BY DISTRIBUTOR");
+            orderRequestRepository.save(existingReq);
+
+            createOrderReqResponse.setCode("0000");
+            createOrderReqResponse.setTitle("Success");
+            createOrderReqResponse.setMessage("Order Request sent to the distributor successfully");
+            return ResponseEntity.ok(createOrderReqResponse);
+
+        } else {
+            log.info("The request has failed");
+
+            OrderRequest existingReq = orderRequestRepository.findById(savedReq.getId())
+                    .orElseThrow(null);
+            existingReq.setStatus("FAILED");
+            orderRequestRepository.save(existingReq);
+
+            createOrderReqResponse.setCode("Code");
+            createOrderReqResponse.setTitle("Failed");
+            createOrderReqResponse.setMessage("Request Failed");
+            return ResponseEntity.badRequest().body(createOrderReqResponse);
+        }
     }
 
+    /**
+     * // Check an order request status
+     */
+    public ResponseEntity<CommonResponse> checkOrderReqStatus(String authorizationHeader, CheckOrderReqStatus checkOrderReqStatus){
+        CommonResponse checkOrderStatusResponse = new CommonResponse();
+        RequestValidator requestValidator = new RequestValidator();
 
+        if (authorizationHeader == null || authorizationHeader.isEmpty()) {
+            log.warn("Authorization header is missing or empty. Request cannot be processed.");
+
+            checkOrderStatusResponse.setCode("Code");
+            checkOrderStatusResponse.setTitle("Failed");
+            checkOrderStatusResponse.setMessage("Token is missing");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(checkOrderStatusResponse);
+        }
+
+        // Extract and validate the token
+        String token = authorizationHeader.substring(7);
+        boolean tokenValidity = requestValidator.validateReq(checkOrderReqStatus.getUsername(), "RETAILER", token);
+
+        if(!tokenValidity){
+            log.info("Token invalid or expired");
+
+            checkOrderStatusResponse.setCode("Code");
+            checkOrderStatusResponse.setTitle("Failed");
+            checkOrderStatusResponse.setMessage("Token is Invalid or Expired");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(checkOrderStatusResponse);
+        }
+
+        SendUserIdRetrieve sendUserIdRetrieve = new SendUserIdRetrieve(checkOrderReqStatus.getUsername());
+        String userId = userServiceClient.retrieveUserId(sendUserIdRetrieve).getBody().getUserData().getUserId();
+
+        if(userId == null || userId.isEmpty()){
+            log.info("User Id empty or null");
+
+            checkOrderStatusResponse.setCode("Code");
+            checkOrderStatusResponse.setTitle("Failed");
+            checkOrderStatusResponse.setMessage("Invalid Username");
+            return ResponseEntity.badRequest().body(checkOrderStatusResponse);
+        }
+
+        //retrieve retailer Id
+        Retailer existingRetailer = retailerRepository.findByUserId(userId).
+                orElseThrow(()-> new RetailerNotFoundException("Retailer Not Found"));
+        String retailerId = existingRetailer.getId();
+
+        //retrieve all requests with retailer Id
+        List<OrderRequest> orderRequestList = orderRequestRepository.findAll(retailerId);
+
+        if(orderRequestList == null || orderRequestList.isEmpty()){
+            log.info("List is empty");
+
+            checkOrderStatusResponse.setCode("0000");
+            checkOrderStatusResponse.setTitle("Success");
+            checkOrderStatusResponse.setMessage("List Is Empty");
+            return ResponseEntity.ok(checkOrderStatusResponse);
+        }
+
+        log.info("List is not empty");
+
+        checkOrderStatusResponse.setCode("0000");
+        checkOrderStatusResponse.setTitle("Success");
+        checkOrderStatusResponse.setMessage("List retrieved successfully");
+        checkOrderStatusResponse.setOrderReqList(orderRequestList);
+        return ResponseEntity.ok(checkOrderStatusResponse);
+    }
+
+    /**
+     * // Receiving an order request status update
+     */
 }

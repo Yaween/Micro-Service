@@ -6,6 +6,7 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 
 public class JWTValidator {
+    //todo: SECRET KEY should not be hardcoded
     private static final String SECRET_KEY = "zNjM4ErxA2dD8dc1yoEzMKPV3shhsyVqCbPJSW0hghA=";
 
     public TokenCheck validateToken(String token) {

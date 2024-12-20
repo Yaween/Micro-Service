@@ -33,6 +33,17 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
 
+    @ExceptionHandler(OrderRequestNotFoundException.class)
+    public ResponseEntity<CommonResponse> handleOrderRequestNotFoundException(OrderRequestNotFoundException ex) {
+        CommonResponse response = new CommonResponse();
+        log.info("Exception Occurred", ex);
+
+        response.setCode("Code");
+        response.setTitle("Failed");
+        response.setMessage("Order Request Not Found");
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<CommonResponse> handleGenericException(Exception ex) {
         CommonResponse response = new CommonResponse();

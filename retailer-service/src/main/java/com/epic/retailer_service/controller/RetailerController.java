@@ -78,7 +78,18 @@ public class RetailerController {
      */
     @PostMapping("/create-order-req")
     public ResponseEntity<CommonResponse> createOrderRequest(
-            @RequestBody CreateRequestOrder createRequestOrder){
-        return retailerService.createOrderRequest(createRequestOrder);
+            @RequestHeader(value = "Authorization", required = false) String authorizationHeader,
+            @RequestBody CreateOrderReq createOrderReq ){
+        return retailerService.createOrderRequest(authorizationHeader, createOrderReq);
+    }
+
+    /**
+     * // Check an order request status
+     */
+    @PostMapping("/check-order-req-status")
+    public ResponseEntity<CommonResponse> checkOrderReqStatus(
+            @RequestHeader(value = "Authorization", required = false) String authorizationHeader,
+            @RequestBody CheckOrderReqStatus checkOrderReqStatus ){
+        return retailerService.checkOrderReqStatus(authorizationHeader, checkOrderReqStatus);
     }
 }

@@ -1,6 +1,7 @@
 package com.epic.retailer_service.dto;
 
 import com.epic.retailer_service.entity.AddDistributorReq;
+import com.epic.retailer_service.entity.OrderRequest;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -24,4 +25,7 @@ public class CommonResponse {
 
     @JsonInclude(JsonInclude.Include.NON_EMPTY)
     private List<DistributorData> distributorList;
+
+    @JsonInclude(JsonInclude.Include.NON_EMPTY)
+    private List<OrderRequest> orderReqList;
 }
