@@ -1,6 +1,7 @@
 package com.epic.retailer_service.service;
 
 import com.epic.retailer_service.client.DistributorServiceClient;
+import com.epic.retailer_service.client.OrderServiceClient;
 import com.epic.retailer_service.client.UserServiceClient;
 import com.epic.retailer_service.dto.*;
 import com.epic.retailer_service.entity.AddDistributorReq;
@@ -32,6 +33,7 @@ public class RetailerService {
     private final DistributorServiceClient distributorServiceClient;
     private final AddDistributorReqRepository addDistributorReqRepository;
     private final OrderRequestRepository orderRequestRepository;
+    private final OrderServiceClient orderServiceClient;
 
     /**
      * // Retailer adding to the retailer table
@@ -464,8 +466,8 @@ public class RetailerService {
         sendOrderReq.setDistributorId(savedReq.getDistributorId());
         sendOrderReq.setProductId(savedReq.getProductId());
         sendOrderReq.setProductCount(savedReq.getProductCount());
-
-        String code = distributorServiceClient.receiveOrderReq(sendOrderReq).getBody().getCode();
+        
+        String code = orderServiceClient.receiveOrderReq(sendOrderReq).getBody().getCode();
 
         //todo: Introduce some other codes for specific errors
         if (code.equals("0000")){ //0000 means distributor service has received the req and stored it
