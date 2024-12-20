@@ -2,31 +2,37 @@ package com.epic.user_service.service;
 
 import com.epic.user_service.config.InitConfig;
 import com.epic.user_service.dto.*;
+import com.epic.user_service.dto.retailer.RetrieveUserIdReq;
+import com.epic.user_service.dto.retailer.UserData;
 import com.epic.user_service.entity.User;
+import com.epic.user_service.entity.UserApproval;
+import com.epic.user_service.exception.UsernameNotFoundException;
+import com.epic.user_service.repository.UserApprovalRepository;
 import com.epic.user_service.repository.UserRepository;
 import com.epic.user_service.util.JWTGenerator;
 import com.epic.user_service.util.PasswordUtil;
 import com.epic.user_service.util.RequestNullChecker;
+import com.epic.user_service.util.UniqueIdGenerator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
-import java.util.Base64;
-import java.util.UUID;
+import java.time.LocalDateTime;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class UserService {
     private final UserRepository userRepository;
+    private final UserApprovalRepository userApprovalRepository;
 
     /**
      * // User registration method
      */
     public ResponseEntity<CommonResponse> registerUser(UserRegisterReq userRegisterReq) {
-        CommonResponse registerResponse = new CommonResponse();
-        RequestNullChecker requestNullChecker = new RequestNullChecker();
+       CommonResponse registerResponse = new CommonResponse();
+       RequestNullChecker requestNullChecker = new RequestNullChecker();
 
         if (requestNullChecker.isNullOrEmpty(userRegisterReq.getUsername(), userRegisterReq.getPassword(),
                 userRegisterReq.getFirstName(), userRegisterReq.getLastName(),
@@ -34,7 +40,7 @@ public class UserService {
 
             log.info("Fields are missing in the request");
 
-            registerResponse.setCode(InitConfig.MISSING_FIELDS_REGISTRATION);
+            registerResponse.setCode(InitConfig.MISSING_FIELDS);
             registerResponse.setTitle(InitConfig.TITLE_FAILED);
             registerResponse.setMessage("All fields are required.");
             return ResponseEntity.badRequest().body(registerResponse);
@@ -72,162 +78,226 @@ public class UserService {
 
         log.info("User is validated with existing users");
 
-        //validate the password with the policy
-        String enteredPassword = userRegisterReq.getPassword();
-        String message = PasswordUtil.passwordPolicyChecker(enteredPassword);
+        String userId = UniqueIdGenerator.generateUniqueId();
 
-        if(message.equalsIgnoreCase("VALID")){
-            log.info("User is validated to register");
+        User user = new User();
+        user.setId(userId);
+        user.setFirstName(userRegisterReq.getFirstName());
+        user.setLastName(userRegisterReq.getLastName());
+        user.setEmail(userRegisterReq.getEmail());
+        user.setContactNumber(userRegisterReq.getContactNumber());
 
-            //generate a random unique string for userId
-            UUID uuid = UUID.randomUUID();
-            String userId = uuid.toString().replace("-", "").toUpperCase();
+        if(userRegisterReq.getUserType().equalsIgnoreCase("DISTRIBUTOR")){
+            user.setUserType("DISTRIBUTOR");
 
-            //set the data to save in DB
-            User user = new User();
-            user.setId(userId);
+        } else if (userRegisterReq.getUserType().equalsIgnoreCase("RETAILER")) {
+            user.setUserType("RETAILER");
+
+        } else if (userRegisterReq.getUserType().equalsIgnoreCase("ADMIN")) {
+            user.setUserType("ADMIN");
+
+            //save admin without approval
             user.setUsername(userRegisterReq.getUsername());
-            user.setPassword(PasswordUtil.encodeToBase64(userRegisterReq.getPassword())); //save the encoded password
-            user.setFirstName(userRegisterReq.getFirstName());
-            user.setLastName(userRegisterReq.getLastName());
-            user.setEmail(userRegisterReq.getEmail());
-            user.setContactNumber(userRegisterReq.getContactNumber());
+            String newPassword = PasswordUtil.encodePassword(userRegisterReq.getPassword());
+            user.setPassword(newPassword);
+            user.setCreatedTime(LocalDateTime.now());
             userRepository.save(user);
-            log.info("User saved in the system successfully");
 
             registerResponse.setCode(InitConfig.SUCCESS);
             registerResponse.setTitle(InitConfig.TITLE_SUCCESS);
-            registerResponse.setMessage("User registered successfully");
+            registerResponse.setMessage("Admin User Registered Successfully");
             return ResponseEntity.ok(registerResponse);
 
         } else {
-            //password is not met with the password policy
-            log.info("Password is not valid with password policy");
+            log.info("Role is invalid");
 
-            registerResponse.setCode(InitConfig.PASSWORD_INVALID);
-            registerResponse.setTitle(InitConfig.TITLE_FAILED);
-            registerResponse.setMessage("Password is invalid due to missing" + message);
+            registerResponse.setCode(InitConfig.ROLE_INVALID);
+            registerResponse.setTitle("Failed");
+            registerResponse.setMessage("Role is invalid.");
             return ResponseEntity.badRequest().body(registerResponse);
         }
+
+        user.setUsername(userRegisterReq.getUsername());
+        String newPassword = PasswordUtil.encodePassword(userRegisterReq.getPassword());
+        user.setPassword(newPassword);
+        user.setCreatedTime(LocalDateTime.now());
+        user.setStatus("PENDING");
+        User saveduser = userRepository.save(user);
+
+        //save in the admin approval table
+        UserApproval userApproval = new UserApproval();
+        userApproval.setUserId(userId);
+        userApproval.setStatus("PENDING");
+        userApproval.setUserType(saveduser.getUserType());
+        userApproval.setUsername(userRegisterReq.getUsername());
+        userApprovalRepository.save(userApproval);
+
+        //return response
+        registerResponse.setCode(InitConfig.SUCCESS);
+        registerResponse.setTitle(InitConfig.TITLE_SUCCESS);
+        registerResponse.setMessage("Request was sent to the admin for the approval");
+        return ResponseEntity.ok(registerResponse);
     }
 
     /**
      * // User login method
      */
     public ResponseEntity<CommonResponse> loginUser(UserLoginReq userLoginReq){
-        CommonResponse loginResponse = new CommonResponse();
-        RequestNullChecker requestNullChecker = new RequestNullChecker();
+        CommonResponse userLoginResponse = new CommonResponse();
         JWTGenerator jwtGenerator = new JWTGenerator();
 
-        //validate the request body
-        if(requestNullChecker.isNullOrEmpty(userLoginReq.getUsername(), userLoginReq.getPassword())){
-            log.info("Login request consist of missing values");
+        if(userLoginReq.getUsername() == null || userLoginReq.getUsername().isEmpty()
+                || userLoginReq.getPassword() == null || userLoginReq.getPassword().isEmpty()){
+            log.info("Request is missing values");
 
-            loginResponse.setCode(InitConfig.MISSING_FIELDS_LOGIN);
-            loginResponse.setTitle(InitConfig.TITLE_FAILED);
-            loginResponse.setMessage("Username or Password is missing");
-            return ResponseEntity.badRequest().body(loginResponse);
+            userLoginResponse.setCode("Code");
+            userLoginResponse.setTitle("Failed");
+            userLoginResponse.setMessage("Missing Values in the request");
+            return ResponseEntity.badRequest().body(userLoginResponse);
         }
 
-        //check the username availability
         if(userRepository.findByUsername(userLoginReq.getUsername()).isPresent()){
-            log.info("Username found");
+            log.info("User is found");
 
-            //extract current password saved in database
-            User existingUser = userRepository.findByUsername(userLoginReq.getUsername()).orElseThrow(null);
-            String currentPassword = existingUser.getPassword();
-            String enteredPassword = PasswordUtil.encodeToBase64(userLoginReq.getPassword());
+            User existingUser = userRepository.findByUsername(userLoginReq.getUsername())
+                    .orElseThrow(()-> new UsernameNotFoundException("Username Not Found"));
+            String savedPassword = existingUser.getPassword();
+            String userType = existingUser.getUserType();
 
-            if(currentPassword.equals(enteredPassword)){
-                //password match flow
-                log.info("Password is correct");
+            if(PasswordUtil.isPasswordValid(userLoginReq.getPassword(), savedPassword)){
+                log.info("Password correct");
 
-                //generating JWT Token
-                String token = jwtGenerator.generateToken(userLoginReq.getUsername());
+                String token = jwtGenerator.generateToken(userLoginReq.getUsername(), userType);
+                log.info("Token Generated");
 
-                loginResponse.setCode(InitConfig.SUCCESS);
-                loginResponse.setTitle(InitConfig.TITLE_SUCCESS);
-                loginResponse.setMessage("Login Successful");
-                loginResponse.setToken(new TokenData(token));
+                userLoginResponse.setCode("0000");
+                userLoginResponse.setTitle("Success");
+                userLoginResponse.setMessage("Login Successful and Token generated");
+                userLoginResponse.setToken(new TokenData(token));
 
             } else {
-                //password mismatch flow
-                log.info("Entered password is incorrect");
+                log.info("Password incorrect");
 
-                loginResponse.setCode(InitConfig.PASSWORD_INCORRECT);
-                loginResponse.setTitle(InitConfig.TITLE_FAILED);
-                loginResponse.setMessage("Password is incorrect");
+                userLoginResponse.setCode("Code");
+                userLoginResponse.setTitle("Failed");
+                userLoginResponse.setMessage("Password entered is incorrect");
             }
+            return ResponseEntity.ok(userLoginResponse);
 
         } else {
-            //username not found flow
-            log.info("Username not found");
+            log.info("User not found");
 
-            loginResponse.setCode(InitConfig.INVALID_USERNAME);
-            loginResponse.setTitle(InitConfig.TITLE_FAILED);
-            loginResponse.setMessage("Username is not valid");
+            userLoginResponse.setCode("Code");
+            userLoginResponse.setTitle("Failed");
+            userLoginResponse.setMessage("User with the give username is not found in the system");
+            return ResponseEntity.badRequest().body(userLoginResponse);
         }
-        return ResponseEntity.ok(loginResponse);
     }
 
-    public ResponseEntity<CommonResponse> changePassword(ChangePasswordReq changePasswordReq){
-        CommonResponse changePWResponse = new CommonResponse();
-        RequestNullChecker requestNullChecker = new RequestNullChecker();
+    public ResponseEntity<CommonResponse> retrieveUserId(RetrieveUserIdReq retrieveUserIdReq) {
+        CommonResponse retrieveUserIdResponse = new CommonResponse();
 
-        if(requestNullChecker.isNullOrEmpty(changePasswordReq.getUsername(),
-                changePasswordReq.getOldPassword(), changePasswordReq.getNewPassword())){
-            log.info("Fields are missing");
-
-            changePWResponse.setCode(InitConfig.MISSING_FIELDS_FORGOT_PW);
-            changePWResponse.setTitle(InitConfig.TITLE_FAILED);
-            changePWResponse.setMessage("Change password request has empty fields");
-            return ResponseEntity.badRequest().body(changePWResponse);
-        }
-
-        if(userRepository.findByUsername(changePasswordReq.getUsername()).isPresent()){
+        if(userRepository.findByUsername(retrieveUserIdReq.getUsername()).isPresent()){
             log.info("User found");
 
-            User existingUser = userRepository.findByUsername(changePasswordReq.getUsername()).orElseThrow(null);
-            String currentPassword = existingUser.getPassword();
-            String enteredPassword = PasswordUtil.encodeToBase64(changePasswordReq.getOldPassword());
+            User exisitingUser = userRepository.findByUsername(retrieveUserIdReq.getUsername())
+                    .orElseThrow(()-> new UsernameNotFoundException("Username not found"));
+            String userId = exisitingUser.getId();
 
-            if(currentPassword.equals(enteredPassword)){
-                log.info("Password is valid");
+            retrieveUserIdResponse.setCode("0000");
+            retrieveUserIdResponse.setTitle("Failed");
+            retrieveUserIdResponse.setMessage("User not found");
+            retrieveUserIdResponse.setUserData(new UserData(userId));
+            return ResponseEntity.ok(retrieveUserIdResponse);
 
-                String newPassword = changePasswordReq.getNewPassword();
-                String message = PasswordUtil.passwordPolicyChecker(newPassword);
-
-                if(message.equalsIgnoreCase("VALID")){
-                    log.info("New password is valid");
-                    existingUser.setPassword(PasswordUtil.encodeToBase64(newPassword));
-                    userRepository.save(existingUser);
-                    log.info("User saved successfully");
-
-                    changePWResponse.setCode(InitConfig.SUCCESS);
-                    changePWResponse.setTitle(InitConfig.TITLE_SUCCESS);
-                    changePWResponse.setMessage("Password changed successfully");
-
-                } else {
-                    log.info("New Password does not follow password policy");
-
-                    changePWResponse.setCode(InitConfig.NEW_PASSWORD_INVALID);
-                    changePWResponse.setTitle(InitConfig.TITLE_FAILED);
-                    changePWResponse.setMessage("New password is not valid :" + message);
-                }
-            } else {
-                log.info("Old Password mismatch");
-
-                changePWResponse.setCode(InitConfig.OLD_PASSWORD_MISMATCH);
-                changePWResponse.setTitle(InitConfig.TITLE_FAILED);
-                changePWResponse.setMessage("Old password is incorrect");
-            }
         } else {
-            log.info("User is not found with the give username");
+            log.info("User not found");
 
-            changePWResponse.setCode(InitConfig.USERNAME_INVALID);
-            changePWResponse.setTitle(InitConfig.TITLE_FAILED);
-            changePWResponse.setMessage("Username is not found");
+            retrieveUserIdResponse.setCode("Code");
+            retrieveUserIdResponse.setTitle("Failed");
+            retrieveUserIdResponse.setMessage("User not found");
+            retrieveUserIdResponse.setUserData(new UserData(null));
+            return ResponseEntity.ok(retrieveUserIdResponse);
         }
-        return ResponseEntity.ok(changePWResponse);
+
     }
+
+//    /**
+//     * // User change password method
+//     */
+//    public ResponseEntity<CommonResponse> changePassword(ChangePasswordReq changePasswordReq){
+//        CommonResponse changePWResponse = new CommonResponse();
+//        RequestNullChecker requestNullChecker = new RequestNullChecker();
+//
+//        if(requestNullChecker.isNullOrEmpty(changePasswordReq.getUsername(),
+//                changePasswordReq.getOldPassword(), changePasswordReq.getNewPassword())){
+//            log.info("Fields are missing");
+//
+//            changePWResponse.setCode(InitConfig.MISSING_FIELDS);
+//            changePWResponse.setTitle(InitConfig.TITLE_FAILED);
+//            changePWResponse.setMessage("Change password request has empty fields");
+//            return ResponseEntity.badRequest().body(changePWResponse);
+//        }
+//
+//        User existingUser = userRepository.findByUsername(changePasswordReq.getUsername()).
+//                orElseThrow(()-> new UsernameNotFoundException("Username not found"));
+//        String currentPassword = existingUser.getPassword();
+//        String enteredPassword = PasswordUtil.encodePassword(changePasswordReq.getOldPassword());
+//
+//        if(currentPassword.equals(enteredPassword)){
+//            log.info("Password is valid");
+//
+//            String newPassword = changePasswordReq.getNewPassword();
+//            String message = PasswordUtil.passwordPolicyChecker(newPassword);
+//
+//            if(message.equalsIgnoreCase("VALID")){
+//                log.info("New password is valid");
+//                existingUser.setPassword(PasswordUtil.encodePassword(newPassword));
+//                userRepository.save(existingUser);
+//                log.info("User saved successfully");
+//
+//                changePWResponse.setCode(InitConfig.SUCCESS);
+//                changePWResponse.setTitle(InitConfig.TITLE_SUCCESS);
+//                changePWResponse.setMessage("Password changed successfully");
+//
+//            } else {
+//                log.info("New Password does not follow password policy");
+//
+//                changePWResponse.setCode(InitConfig.NEW_PASSWORD_INVALID);
+//                changePWResponse.setTitle(InitConfig.TITLE_FAILED);
+//                changePWResponse.setMessage("New password is not valid :" + message);
+//            }
+//        } else {
+//            log.info("Old Password mismatch");
+//
+//            changePWResponse.setCode(InitConfig.OLD_PASSWORD_MISMATCH);
+//            changePWResponse.setTitle(InitConfig.TITLE_FAILED);
+//            changePWResponse.setMessage("Old password is incorrect");
+//        }
+//
+//        return ResponseEntity.ok(changePWResponse);
+//    }
+//
+//    public boolean validateUsername(String username){
+//        if(userRepository.findByUsername(username).isPresent()){
+//            log.info("Username found in database");
+//            return true;
+//
+//        }else {
+//            log.info("Username not found in database");
+//            return false;
+//        }
+//    }
+//
+//    public String validateUsernameNew(String username){
+//        if(userRepository.findByUsername(username).isPresent()){
+//            log.info("User is present");
+//            User existingUser = userRepository.findByUsername(username).orElseThrow(null);
+//            return existingUser.getUserType();
+//
+//        } else {
+//            log.info("User is absent");
+//            return null;
+//        }
+//    }
 }

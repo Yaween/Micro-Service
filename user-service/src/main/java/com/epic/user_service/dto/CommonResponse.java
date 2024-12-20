@@ -1,10 +1,14 @@
 package com.epic.user_service.dto;
 
+import com.epic.user_service.dto.retailer.UserData;
+import com.epic.user_service.entity.User;
+import com.epic.user_service.entity.UserApproval;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.antlr.v4.runtime.Token;
+
+import java.util.List;
 
 @Data
 @AllArgsConstructor
@@ -16,4 +20,13 @@ public class CommonResponse {
 
     @JsonInclude(JsonInclude.Include.NON_EMPTY)
     private TokenData token;
+
+    @JsonInclude(JsonInclude.Include.NON_EMPTY)
+    private User user;
+
+    @JsonInclude(JsonInclude.Include.NON_EMPTY)
+    private List<UserApproval> approvalList;
+
+    @JsonInclude(JsonInclude.Include.NON_EMPTY)
+    private UserData userData;
 }

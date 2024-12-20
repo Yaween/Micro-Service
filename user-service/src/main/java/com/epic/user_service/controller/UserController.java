@@ -1,10 +1,13 @@
 package com.epic.user_service.controller;
 
-import com.epic.user_service.config.InitConfig;
-import com.epic.user_service.dto.ChangePasswordReq;
 import com.epic.user_service.dto.CommonResponse;
 import com.epic.user_service.dto.UserLoginReq;
 import com.epic.user_service.dto.UserRegisterReq;
+import com.epic.user_service.dto.admin.ChangeApprovalReq;
+import com.epic.user_service.dto.admin.GetApprovalReq;
+import com.epic.user_service.dto.admin.LoginAdminReq;
+import com.epic.user_service.dto.retailer.RetrieveUserIdReq;
+import com.epic.user_service.service.AdminService;
 import com.epic.user_service.service.UserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -17,25 +20,14 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class UserController {
     private final UserService userService;
-
+    private final AdminService adminService;
     /**
      * // User registration API
      */
     @PostMapping("/register")
     public ResponseEntity<CommonResponse> registerUser(@RequestBody UserRegisterReq userRegisterReq){
-        CommonResponse registerResponse = new CommonResponse();
-        try{
-            log.info("User register request is received");
-            return userService.registerUser(userRegisterReq);
-
-        } catch (Exception e){
-            log.info("An error occurred :", e);
-
-            registerResponse.setCode(InitConfig.REGISTRATION_FAILED);
-            registerResponse.setTitle(InitConfig.TITLE_FAILED);
-            registerResponse.setMessage("Error occurred in the registration : " + e.getMessage());
-            return ResponseEntity.badRequest().body(registerResponse);
-        }
+        log.info("User register request is received");
+        return userService.registerUser(userRegisterReq);
     }
 
     /**
@@ -43,39 +35,47 @@ public class UserController {
      */
     @PostMapping("/login")
     public ResponseEntity<CommonResponse> loginUser(@RequestBody UserLoginReq userLoginReq){
-        CommonResponse loginResponse = new CommonResponse();
-        try{
-           log.info("User login request is received");
-           return userService.loginUser(userLoginReq);
-
-        } catch (Exception e){
-           log.info("An error occurred :", e);
-
-           loginResponse.setCode(InitConfig.LOGIN_FAILED);
-           loginResponse.setTitle(InitConfig.TITLE_FAILED);
-           loginResponse.setMessage("Error occurred in the login : " + e.getMessage());
-           return ResponseEntity.badRequest().body(loginResponse);
-        }
+        log.info("User login request is received");
+        return userService.loginUser(userLoginReq);
     }
 
-    /**
-     * // User Change Password API
-     */
-    @PutMapping("/change-pw")
-    public ResponseEntity<CommonResponse> changePassword(@RequestBody ChangePasswordReq changePasswordReq){
-        CommonResponse changePWResponse = new CommonResponse();
-        try{
-            log.info("Change password request received");
-            return userService.changePassword(changePasswordReq);
-
-        } catch (Exception e){
-            log.info("An error occurred : ", e);
-
-            changePWResponse.setCode(InitConfig.CHANGE_PW_FAILED);
-            changePWResponse.setTitle(InitConfig.TITLE_FAILED);
-            changePWResponse.setMessage("Error occurred in the change password : " + e.getMessage());
-            return ResponseEntity.badRequest().body(changePWResponse);
-        }
+    @PostMapping("/retrieveUserId")
+    public ResponseEntity<CommonResponse> retrieveUserId(@RequestBody RetrieveUserIdReq retrieveUserIdReq){
+        log.info("User Id Retrieval Request Received");
+        return userService.retrieveUserId(retrieveUserIdReq);
     }
+
+    @PostMapping("/approvalList")
+    public ResponseEntity<CommonResponse> getApprovalList(
+            @RequestHeader(value = "Authorization", required = false) String authorizationHeader,
+            @RequestBody GetApprovalReq getApprovalReq){
+        return adminService.getApprovalPendingList(authorizationHeader, getApprovalReq);
+    }
+
+    @PostMapping("/approveOrReject")
+    public ResponseEntity<CommonResponse> approveOrRejectRequest(
+            @RequestHeader(value = "Authorization", required = false) String authorizationHeader,
+            @RequestBody ChangeApprovalReq changeApprovalReq){
+        return adminService.approveOrRejectRequest(authorizationHeader, changeApprovalReq);
+    }
+
+    @PostMapping("/loginAdmin")
+    public ResponseEntity<CommonResponse> loginAdmin(@RequestBody LoginAdminReq loginAdminReq){
+        return adminService.loginAdmin(loginAdminReq);
+    }
+
+//    /**
+//     * // User Change Password API
+//     */
+//    @PutMapping("/change-pw")
+//    public ResponseEntity<CommonResponse> changePassword(@RequestBody ChangePasswordReq changePasswordReq){
+//        log.info("Change password request received");
+//        return userService.changePassword(changePasswordReq);
+//    }
+//
+//    @PostMapping("/validate")
+//    public String usernameValidityChecker(@RequestBody String username) {
+//        return userService.validateUsernameNew(username);
+//    }
 
 }

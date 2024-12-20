@@ -14,4 +14,5 @@ public class UserRegisterReq {
     private String lastName;
     private String email;
     private String contactNumber;
+    private String userType;
 }
