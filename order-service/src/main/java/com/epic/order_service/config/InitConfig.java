@@ -1,4 +1,4 @@
-package com.epic.user_service.config;
+package com.epic.order_service.config;
 
 public class InitConfig {
 
@@ -19,19 +19,20 @@ public class InitConfig {
     public static final String OLD_PASSWORD_MISMATCH = "1013";
     public static final String USERNAME_INVALID = "1014";
     public static final String CHANGE_PW_FAILED = "1015";
-    public static final String TOKEN_MISSING = "1016";
-    public static final String TOKEN_INVALID_EXPIRED = "1017";
-    public static final String REQUEST_FAILED = "1018";
-    public static final String UNSUCCESSFUL_RESPONSE = "1019";
-    public static final String RETAILER_NOT_FOUND = "1020";
-    public static final String UNIDENTIFIED_OPTION = "1021";
-    public static final String LIST_EMPTY = "1022";
-    public static final String DISTRIBUTOR_REQUEST_NOT_FOUND = "1023";
-    public static final String ORDER_REQUEST_NOT_FOUND = "1024";
-    public static final String PRODUCT_ID_NOT_FOUND = "1025";
+    public static final String TOKEN_VALID = "1016";
+    public static final String TOKEN_MISSING = "1017";
+    public static final String TOKEN_INVALID_EXPIRED = "1018";
+    public static final String REQUEST_FAILED = "1019";
+    public static final String UNSUCCESSFUL_RESPONSE = "1020";
+    public static final String RETAILER_NOT_FOUND = "1021";
+    public static final String UNIDENTIFIED_OPTION = "1022";
+    public static final String LIST_EMPTY = "1023";
+    public static final String DISTRIBUTOR_REQUEST_NOT_FOUND = "1024";
+    public static final String ORDER_REQUEST_NOT_FOUND = "1025";
+    public static final String PRODUCT_ID_NOT_FOUND = "1026";
 
     //titles
     public static final String TITLE_SUCCESS = "SUCCESS";
     public static final String TITLE_FAILED = "FAILED";
-
+    public static final String TITLE_UNAUTHORIZED = "UNAUTHORIZED";
 }

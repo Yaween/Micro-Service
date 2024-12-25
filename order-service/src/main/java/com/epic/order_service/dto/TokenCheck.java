@@ -7,7 +7,7 @@ import lombok.NoArgsConstructor;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class GetOrdersReq {
+public class TokenCheck {
     private String username;
-    private String distributorId;
+    private String userType;
 }

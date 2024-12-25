@@ -7,7 +7,7 @@ import lombok.NoArgsConstructor;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class GetOrdersReq {
-    private String username;
-    private String distributorId;
+public class SendOrderReqUpdate {
+    private String orderId;
+    private String status;
 }

@@ -10,6 +10,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 @FeignClient("order-service")
 public interface OrderServiceClient {
 
-    @PostMapping("/api/order/receiveOrderReq")
+    @PostMapping("/api/order/receive-order")
     ResponseEntity<CommonResponse> receiveOrderReq(@RequestBody SendOrderReq sendOrderReq);
 }

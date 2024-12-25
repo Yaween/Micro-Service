@@ -1,5 +1,6 @@
 package com.epic.retailer_service.exception;
 
+import com.epic.retailer_service.config.InitConfig;
 import com.epic.retailer_service.dto.CommonResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -16,8 +17,8 @@ public class GlobalExceptionHandler {
         CommonResponse response = new CommonResponse();
         log.info("Exception Occurred", ex);
 
-        response.setCode("Code");
-        response.setTitle("Failed");
+        response.setCode(InitConfig.DISTRIBUTOR_REQUEST_NOT_FOUND);
+        response.setTitle(InitConfig.TITLE_FAILED);
         response.setMessage("Request not found");
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
@@ -27,8 +28,8 @@ public class GlobalExceptionHandler {
         CommonResponse response = new CommonResponse();
         log.info("Exception Occurred", ex);
 
-        response.setCode("Code");
-        response.setTitle("Failed");
+        response.setCode(InitConfig.RETAILER_NOT_FOUND);
+        response.setTitle(InitConfig.TITLE_FAILED);
         response.setMessage("Retailer not found");
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
@@ -38,8 +39,8 @@ public class GlobalExceptionHandler {
         CommonResponse response = new CommonResponse();
         log.info("Exception Occurred", ex);
 
-        response.setCode("Code");
-        response.setTitle("Failed");
+        response.setCode(InitConfig.ORDER_REQUEST_NOT_FOUND);
+        response.setTitle(InitConfig.TITLE_FAILED);
         response.setMessage("Order Request Not Found");
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }

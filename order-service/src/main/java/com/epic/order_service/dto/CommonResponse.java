@@ -7,6 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.util.List;
+import java.util.Map;
 
 @Data
 @AllArgsConstructor
@@ -17,5 +18,5 @@ public class CommonResponse {
     private String message;
 
     @JsonInclude(JsonInclude.Include.NON_EMPTY)
-    private List<Order> orderList;
+    private List<Map<String, Object>> orderList;
 }

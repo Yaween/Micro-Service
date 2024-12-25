@@ -3,6 +3,7 @@ package com.epic.retailer_service.service;
 import com.epic.retailer_service.client.DistributorServiceClient;
 import com.epic.retailer_service.client.OrderServiceClient;
 import com.epic.retailer_service.client.UserServiceClient;
+import com.epic.retailer_service.config.InitConfig;
 import com.epic.retailer_service.dto.*;
 import com.epic.retailer_service.entity.AddDistributorReq;
 import com.epic.retailer_service.entity.OrderRequest;
@@ -13,6 +14,7 @@ import com.epic.retailer_service.exception.RetailerNotFoundException;
 import com.epic.retailer_service.repository.AddDistributorReqRepository;
 import com.epic.retailer_service.repository.OrderRequestRepository;
 import com.epic.retailer_service.repository.RetailerRepository;
+import com.epic.retailer_service.util.AuthorizationChecker;
 import com.epic.retailer_service.util.RequestValidator;
 import com.epic.retailer_service.util.UniqueIdGenerator;
 import lombok.RequiredArgsConstructor;
@@ -22,7 +24,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -49,8 +54,8 @@ public class RetailerService {
         retailer.setStatus("INACTIVE");
         retailerRepository.save(retailer);
 
-        addRetailerResponse.setCode("0000");
-        addRetailerResponse.setTitle("Success");
+        addRetailerResponse.setCode(InitConfig.SUCCESS);
+        addRetailerResponse.setTitle(InitConfig.TITLE_SUCCESS);
         addRetailerResponse.setMessage("Distributor added to the table successfully");
         return ResponseEntity.ok(addRetailerResponse);
     }
@@ -60,60 +65,55 @@ public class RetailerService {
      */
     public ResponseEntity<CommonResponse> updateRetailer(String authorizationHeader, UpdateRetailerReq updateRetailerReq){
         CommonResponse updateRetailerResponse = new CommonResponse();
-        RequestValidator requestValidator = new RequestValidator();
+        AuthorizationChecker authorizationChecker = new AuthorizationChecker();
 
-        if (authorizationHeader == null || authorizationHeader.isEmpty()) {
-            log.warn("Authorization header is missing or empty. Request cannot be processed.");
+        //validating the token
+        CommonResponse response = authorizationChecker.authorizationCheck(authorizationHeader, updateRetailerReq.getUsername(), "RETAILER");
 
-            updateRetailerResponse.setCode("Code");
-            updateRetailerResponse.setTitle("Failed");
-            updateRetailerResponse.setMessage("Token is missing");
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(updateRetailerResponse);
-        }
+        if (response.getCode().equals(InitConfig.TOKEN_VALID)) {
+            SendUserIdRetrieve sendUserIdRetrieve = new SendUserIdRetrieve(updateRetailerReq.getUsername());
 
-        // Extract and validate the token
-        String token = authorizationHeader.substring(7);
-        boolean tokenValidity = requestValidator.validateReq(updateRetailerReq.getUsername(), "RETAILER", token);
+            try{
+                String userId = userServiceClient.retrieveUserId(sendUserIdRetrieve).getBody().getUserData().getUserId();
+                if(userId == null){
+                    log.info("User id is null");
 
-        if(!tokenValidity){
-            log.info("Token invalid or expired");
+                    updateRetailerResponse.setCode(InitConfig.USERNAME_INVALID);
+                    updateRetailerResponse.setTitle(InitConfig.TITLE_FAILED);
+                    updateRetailerResponse.setMessage("Username is invalid");
+                    return ResponseEntity.badRequest().body(updateRetailerResponse);
+                }
 
-            updateRetailerResponse.setCode("Code");
-            updateRetailerResponse.setTitle("Failed");
-            updateRetailerResponse.setMessage("Token is Invalid or Expired");
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(updateRetailerResponse);
-        }
+                Retailer existingRetailer = retailerRepository.findByUserId(userId).
+                        orElseThrow(()-> new RetailerNotFoundException("Retailer Not Found"));
+                existingRetailer.setShopName(updateRetailerReq.getShopName());
+                retailerRepository.save(existingRetailer);
+                log.info("The details have been updated successfully");
 
-        SendUserIdRetrieve sendUserIdRetrieve = new SendUserIdRetrieve(updateRetailerReq.getUsername());
+                updateRetailerResponse.setCode(InitConfig.SUCCESS);
+                updateRetailerResponse.setTitle(InitConfig.TITLE_SUCCESS);
+                updateRetailerResponse.setMessage("The retailer has been updated successfully");
+                return ResponseEntity.ok(updateRetailerResponse);
 
-        try{
-            String userId = userServiceClient.retrieveUserId(sendUserIdRetrieve).getBody().getUserData().getUserId();
-            if(userId == null){
-                log.info("User id is null");
+            } catch (Exception e){
+                log.info("Error occurred while sending the request to user-service", e);
 
-                updateRetailerResponse.setCode("Code");
-                updateRetailerResponse.setTitle("Failed");
-                updateRetailerResponse.setMessage("Username is invalid");
+                updateRetailerResponse.setCode(InitConfig.REQUEST_FAILED);
+                updateRetailerResponse.setTitle(InitConfig.TITLE_FAILED);
+                updateRetailerResponse.setMessage("Error occurred while processing the request");
                 return ResponseEntity.badRequest().body(updateRetailerResponse);
             }
 
-            Retailer existingRetailer = retailerRepository.findByUserId(userId).
-                    orElseThrow(null);
-            existingRetailer.setShopName(updateRetailerReq.getShopName());
-            retailerRepository.save(existingRetailer);
-            log.info("The details have been updated successfully");
+        } else if (response.getCode().equalsIgnoreCase(InitConfig.TOKEN_MISSING)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
 
-            updateRetailerResponse.setCode("0000");
-            updateRetailerResponse.setTitle("Success");
-            updateRetailerResponse.setMessage("The retailer has been updated successfully");
-            return ResponseEntity.ok(updateRetailerResponse);
+        } else if (response.getCode().equalsIgnoreCase(InitConfig.TOKEN_INVALID_EXPIRED)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
 
-        } catch (Exception e){
-            log.info("Error occurred while sending the request to user-service", e);
-
+        } else {
             updateRetailerResponse.setCode("Code");
-            updateRetailerResponse.setTitle("Failed");
-            updateRetailerResponse.setMessage("Error occurred while processing the request");
+            updateRetailerResponse.setTitle(InitConfig.TITLE_FAILED);
+            updateRetailerResponse.setMessage("Unidentified Error with the token");
             return ResponseEntity.badRequest().body(updateRetailerResponse);
         }
     }
@@ -129,8 +129,8 @@ public class RetailerService {
         if (authorizationHeader == null || authorizationHeader.isEmpty()) {
             log.warn("Authorization header is missing or empty. Request cannot be processed.");
 
-            requestDistributorResponse.setCode("Code");
-            requestDistributorResponse.setTitle("Failed");
+            requestDistributorResponse.setCode(InitConfig.TOKEN_MISSING);
+            requestDistributorResponse.setTitle(InitConfig.TITLE_FAILED);
             requestDistributorResponse.setMessage("Token is missing");
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(requestDistributorResponse);
         }
@@ -142,8 +142,8 @@ public class RetailerService {
         if(!tokenValidity){
             log.info("Token invalid or expired");
 
-            requestDistributorResponse.setCode("Code");
-            requestDistributorResponse.setTitle("Failed");
+            requestDistributorResponse.setCode(InitConfig.TOKEN_INVALID_EXPIRED);
+            requestDistributorResponse.setTitle(InitConfig.TITLE_FAILED);
             requestDistributorResponse.setMessage("Token is Invalid or Expired");
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(requestDistributorResponse);
         }
@@ -152,14 +152,14 @@ public class RetailerService {
         if(userId == null){
             log.info("User id is null");
 
-            requestDistributorResponse.setCode("Code");
-            requestDistributorResponse.setTitle("Failed");
+            requestDistributorResponse.setCode(InitConfig.USERNAME_INVALID);
+            requestDistributorResponse.setTitle(InitConfig.TITLE_FAILED);
             requestDistributorResponse.setMessage("Username is invalid");
             return ResponseEntity.badRequest().body(requestDistributorResponse);
         }
 
         Retailer retailer = retailerRepository.findByUserId(userId).
-                orElseThrow(null);
+                orElseThrow(()-> new RetailerNotFoundException("Retailer Not Found"));
         SendDistributorReq sendDistributorReq = new SendDistributorReq();
         sendDistributorReq.setRetailerId(retailer.getId());
         sendDistributorReq.setRetailerUserId(userId);
@@ -181,7 +181,7 @@ public class RetailerService {
             log.info("Request sending to distributor");
             String code = distributorServiceClient.requestDistributor(sendDistributorReq).getBody().getCode();
 
-            if(code.equals("0000")){
+            if(code.equals(InitConfig.SUCCESS)){
                 log.info("Distributor request was successful");
 
                 AddDistributorReq existingReq = addDistributorReqRepository.findById(savedReq.getId()).
@@ -190,24 +190,24 @@ public class RetailerService {
                 addDistributorReqRepository.save(existingReq);
                 log.info("Request Status was updated");
 
-                requestDistributorResponse.setCode("0000");
-                requestDistributorResponse.setTitle("Success");
+                requestDistributorResponse.setCode(InitConfig.SUCCESS);
+                requestDistributorResponse.setTitle(InitConfig.TITLE_SUCCESS);
                 requestDistributorResponse.setMessage("Request was sent to the distributor successfully");
                 return ResponseEntity.ok(requestDistributorResponse);
 
             } else {
                 log.info("Response was not successful");
 
-                requestDistributorResponse.setCode("Code");
-                requestDistributorResponse.setTitle("Failed");
+                requestDistributorResponse.setCode(InitConfig.UNSUCCESSFUL_RESPONSE);
+                requestDistributorResponse.setTitle(InitConfig.TITLE_FAILED);
                 requestDistributorResponse.setMessage("Unsuccessful Response from Distributor");
                 return ResponseEntity.badRequest().body(requestDistributorResponse);
             }
         } catch (Exception e){
             log.info("Error occurred while requesting distributor");
 
-            requestDistributorResponse.setCode("Code");
-            requestDistributorResponse.setTitle("Failed");
+            requestDistributorResponse.setCode(InitConfig.REQUEST_FAILED);
+            requestDistributorResponse.setTitle(InitConfig.TITLE_FAILED);
             requestDistributorResponse.setMessage("Error occurred while requesting distributor");
             return ResponseEntity.badRequest().body(requestDistributorResponse);
         }
@@ -224,8 +224,8 @@ public class RetailerService {
         if (authorizationHeader == null || authorizationHeader.isEmpty()) {
             log.warn("Authorization header is missing or empty. Request cannot be processed.");
 
-            requestStatusCheckResponse.setCode("Code");
-            requestStatusCheckResponse.setTitle("Failed");
+            requestStatusCheckResponse.setCode(InitConfig.TOKEN_MISSING);
+            requestStatusCheckResponse.setTitle(InitConfig.TITLE_FAILED);
             requestStatusCheckResponse.setMessage("Token is missing");
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(requestStatusCheckResponse);
         }
@@ -237,8 +237,8 @@ public class RetailerService {
         if(!tokenValidity){
             log.info("Token invalid or expired");
 
-            requestStatusCheckResponse.setCode("Code");
-            requestStatusCheckResponse.setTitle("Failed");
+            requestStatusCheckResponse.setCode(InitConfig.TOKEN_INVALID_EXPIRED);
+            requestStatusCheckResponse.setTitle(InitConfig.TITLE_FAILED);
             requestStatusCheckResponse.setMessage("Token is Invalid or Expired");
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(requestStatusCheckResponse);
         }
@@ -249,8 +249,8 @@ public class RetailerService {
         if(userId == null){
             log.info("User Id is null");
 
-            requestStatusCheckResponse.setCode("Code");
-            requestStatusCheckResponse.setTitle("Failed");
+            requestStatusCheckResponse.setCode(InitConfig.USERNAME_INVALID);
+            requestStatusCheckResponse.setTitle(InitConfig.TITLE_FAILED);
             requestStatusCheckResponse.setMessage("Username is invalid");
             return ResponseEntity.badRequest().body(requestStatusCheckResponse);
         }
@@ -264,25 +264,37 @@ public class RetailerService {
             if(!addDistributorReqRepository.findByRetailerId(retailerId).isEmpty()){
                 log.info("Retailer found in the request table");
 
-                requestStatusCheckResponse.setCode("0000");
-                requestStatusCheckResponse.setTitle("Success");
+                List<AddDistributorReq> addDistributorReqList = addDistributorReqRepository.findByRetailerId(retailerId);
+
+                List<Map<String, Object>> filteredList = new ArrayList<>();
+                for (AddDistributorReq distributorReq : addDistributorReqList) {
+                    Map<String, Object> map = new HashMap<>();
+                    if(distributorReq.getStatus().equalsIgnoreCase("PENDING")){
+                        map.put("id", distributorReq.getId());
+                        map.put("status", distributorReq.getStatus());
+                        filteredList.add(map);
+                    }
+                }
+
+                requestStatusCheckResponse.setCode(InitConfig.SUCCESS);
+                requestStatusCheckResponse.setTitle(InitConfig.TITLE_SUCCESS);
                 requestStatusCheckResponse.setMessage("Retailer's Requests retrieved Successfully");
-                requestStatusCheckResponse.setReqList(addDistributorReqRepository.findByRetailerId(retailerId));
+                requestStatusCheckResponse.setReqList(filteredList);
                 return ResponseEntity.ok(requestStatusCheckResponse);
 
             } else {
                 log.info("Retailer is not found in the request table");
 
-                requestStatusCheckResponse.setCode("Code");
-                requestStatusCheckResponse.setTitle("Failed");
+                requestStatusCheckResponse.setCode(InitConfig.SUCCESS);
+                requestStatusCheckResponse.setTitle(InitConfig.TITLE_SUCCESS);
                 requestStatusCheckResponse.setMessage("Retailer has no any distributor Requests");
                 return ResponseEntity.badRequest().body(requestStatusCheckResponse);
             }
         } catch (Exception e){
             log.info("Error occurred while sending the request", e);
 
-            requestStatusCheckResponse.setCode("Code");
-            requestStatusCheckResponse.setTitle("Failed");
+            requestStatusCheckResponse.setCode(InitConfig.REQUEST_FAILED);
+            requestStatusCheckResponse.setTitle(InitConfig.TITLE_FAILED);
             requestStatusCheckResponse.setMessage("Error sending the request");
             return ResponseEntity.badRequest().body(requestStatusCheckResponse);
         }
@@ -298,8 +310,8 @@ public class RetailerService {
         if (authorizationHeader == null || authorizationHeader.isEmpty()) {
             log.warn("Authorization header is missing or empty. Request cannot be processed.");
 
-            requestStatusUpdateResponse.setCode("Code");
-            requestStatusUpdateResponse.setTitle("Failed");
+            requestStatusUpdateResponse.setCode(InitConfig.TOKEN_MISSING);
+            requestStatusUpdateResponse.setTitle(InitConfig.TITLE_FAILED);
             requestStatusUpdateResponse.setMessage("Token is missing");
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(requestStatusUpdateResponse);
         }
@@ -311,8 +323,8 @@ public class RetailerService {
         if(!tokenValidity){
             log.info("Token invalid or expired");
 
-            requestStatusUpdateResponse.setCode("Code");
-            requestStatusUpdateResponse.setTitle("Failed");
+            requestStatusUpdateResponse.setCode(InitConfig.TOKEN_INVALID_EXPIRED);
+            requestStatusUpdateResponse.setTitle(InitConfig.TITLE_FAILED);
             requestStatusUpdateResponse.setMessage("Token is Invalid or Expired");
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(requestStatusUpdateResponse);
         }
@@ -327,8 +339,8 @@ public class RetailerService {
             existingReq.setUpdatedTime(LocalDateTime.now());
             addDistributorReqRepository.save(existingReq);
 
-            requestStatusUpdateResponse.setCode("0000");
-            requestStatusUpdateResponse.setTitle("Success");
+            requestStatusUpdateResponse.setCode(InitConfig.SUCCESS);
+            requestStatusUpdateResponse.setTitle(InitConfig.TITLE_SUCCESS);
             requestStatusUpdateResponse.setMessage("Approval Request Received Successfully");
             return ResponseEntity.ok(requestStatusUpdateResponse);
 
@@ -339,16 +351,16 @@ public class RetailerService {
             existingReq.setUpdatedTime(LocalDateTime.now());
             addDistributorReqRepository.save(existingReq);
 
-            requestStatusUpdateResponse.setCode("0000");
-            requestStatusUpdateResponse.setTitle("Success");
+            requestStatusUpdateResponse.setCode(InitConfig.SUCCESS);
+            requestStatusUpdateResponse.setTitle(InitConfig.TITLE_SUCCESS);
             requestStatusUpdateResponse.setMessage("Reject Request Received Successfully");
             return ResponseEntity.ok(requestStatusUpdateResponse);
 
         } else {
             log.info("Unidentified option");
 
-            requestStatusUpdateResponse.setCode("Code");
-            requestStatusUpdateResponse.setTitle("Failed");
+            requestStatusUpdateResponse.setCode(InitConfig.UNIDENTIFIED_OPTION);
+            requestStatusUpdateResponse.setTitle(InitConfig.TITLE_FAILED);
             requestStatusUpdateResponse.setMessage("Unidentified Option from distributor");
             return ResponseEntity.ok(requestStatusUpdateResponse);
         }
@@ -364,8 +376,8 @@ public class RetailerService {
         if (authorizationHeader == null || authorizationHeader.isEmpty()) {
             log.warn("Authorization header is missing or empty. Request cannot be processed.");
 
-            getDistributorsResponse.setCode("Code");
-            getDistributorsResponse.setTitle("Failed");
+            getDistributorsResponse.setCode(InitConfig.TOKEN_MISSING);
+            getDistributorsResponse.setTitle(InitConfig.TITLE_FAILED);
             getDistributorsResponse.setMessage("Token is missing");
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(getDistributorsResponse);
         }
@@ -377,8 +389,8 @@ public class RetailerService {
         if(!tokenValidity){
             log.info("Token invalid or expired");
 
-            getDistributorsResponse.setCode("Code");
-            getDistributorsResponse.setTitle("Failed");
+            getDistributorsResponse.setCode(InitConfig.TOKEN_INVALID_EXPIRED);
+            getDistributorsResponse.setTitle(InitConfig.TITLE_FAILED);
             getDistributorsResponse.setMessage("Token is Invalid or Expired");
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(getDistributorsResponse);
         }
@@ -388,19 +400,67 @@ public class RetailerService {
         if(distributorList == null || distributorList.isEmpty()){
             log.info("Distributor list is empty");
 
-            getDistributorsResponse.setCode("Code");
-            getDistributorsResponse.setTitle("Failed");
+            getDistributorsResponse.setCode(InitConfig.LIST_EMPTY);
+            getDistributorsResponse.setTitle(InitConfig.TITLE_FAILED);
             getDistributorsResponse.setMessage("Distributor list is empty");
             return ResponseEntity.ok(getDistributorsResponse);
         }
 
         log.info("Distributor list found");
 
-        getDistributorsResponse.setCode("0000");
-        getDistributorsResponse.setTitle("Success");
+        getDistributorsResponse.setCode(InitConfig.SUCCESS);
+        getDistributorsResponse.setTitle(InitConfig.TITLE_SUCCESS);
         getDistributorsResponse.setMessage("Distributor list retrieved successfully");
         getDistributorsResponse.setDistributorList(distributorList);
         return ResponseEntity.ok(getDistributorsResponse);
+    }
+
+    /**
+     * // Get all available products
+     */
+
+    public ResponseEntity<CommonResponse> getProducts(String authorizationHeader, String username) {
+        CommonResponse getProductsResponse = new CommonResponse();
+        RequestValidator requestValidator = new RequestValidator();
+
+        if (authorizationHeader == null || authorizationHeader.isEmpty()) {
+            log.warn("Authorization header is missing or empty. Request cannot be processed.");
+
+            getProductsResponse.setCode(InitConfig.TOKEN_MISSING);
+            getProductsResponse.setTitle(InitConfig.TITLE_FAILED);
+            getProductsResponse.setMessage("Token is missing");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(getProductsResponse);
+        }
+
+        // Extract and validate the token
+        String token = authorizationHeader.substring(7);
+        boolean tokenValidity = requestValidator.validateReq(username, "RETAILER", token);
+
+        if(!tokenValidity){
+            log.info("Token invalid or expired");
+
+            getProductsResponse.setCode(InitConfig.TOKEN_INVALID_EXPIRED);
+            getProductsResponse.setTitle(InitConfig.TITLE_FAILED);
+            getProductsResponse.setMessage("Token is Invalid or Expired");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(getProductsResponse);
+        }
+
+        List<ProductData> productList = distributorServiceClient.getAllProducts().getBody().getProductList();
+
+        if(productList == null || productList.isEmpty()){
+            log.info("Product list is empty");
+
+            getProductsResponse.setCode(InitConfig.LIST_EMPTY);
+            getProductsResponse.setTitle(InitConfig.TITLE_FAILED);
+            getProductsResponse.setMessage("No Products yet to be shown");
+            return ResponseEntity.ok(getProductsResponse);
+        }
+
+        getProductsResponse.setCode(InitConfig.SUCCESS);
+        getProductsResponse.setTitle(InitConfig.TITLE_SUCCESS);
+        getProductsResponse.setMessage("Product list retrieved successfully");
+        getProductsResponse.setProductList(productList);
+        return ResponseEntity.ok(getProductsResponse);
     }
 
     /**
@@ -413,8 +473,8 @@ public class RetailerService {
         if (authorizationHeader == null || authorizationHeader.isEmpty()) {
             log.warn("Authorization header is missing or empty. Request cannot be processed.");
 
-            createOrderReqResponse.setCode("Code");
-            createOrderReqResponse.setTitle("Failed");
+            createOrderReqResponse.setCode(InitConfig.TOKEN_MISSING);
+            createOrderReqResponse.setTitle(InitConfig.TITLE_FAILED);
             createOrderReqResponse.setMessage("Token is missing");
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(createOrderReqResponse);
         }
@@ -426,8 +486,8 @@ public class RetailerService {
         if(!tokenValidity){
             log.info("Token invalid or expired");
 
-            createOrderReqResponse.setCode("Code");
-            createOrderReqResponse.setTitle("Failed");
+            createOrderReqResponse.setCode(InitConfig.TOKEN_INVALID_EXPIRED);
+            createOrderReqResponse.setTitle(InitConfig.TITLE_FAILED);
             createOrderReqResponse.setMessage("Token is Invalid or Expired");
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(createOrderReqResponse);
         }
@@ -438,8 +498,8 @@ public class RetailerService {
         if(userId == null || userId.isEmpty()){
             log.info("User Id empty or null");
 
-            createOrderReqResponse.setCode("Code");
-            createOrderReqResponse.setTitle("Failed");
+            createOrderReqResponse.setCode(InitConfig.USERNAME_INVALID);
+            createOrderReqResponse.setTitle(InitConfig.TITLE_FAILED);
             createOrderReqResponse.setMessage("Invalid Username");
             return ResponseEntity.badRequest().body(createOrderReqResponse);
         }
@@ -466,33 +526,50 @@ public class RetailerService {
         sendOrderReq.setDistributorId(savedReq.getDistributorId());
         sendOrderReq.setProductId(savedReq.getProductId());
         sendOrderReq.setProductCount(savedReq.getProductCount());
-        
-        String code = orderServiceClient.receiveOrderReq(sendOrderReq).getBody().getCode();
 
-        //todo: Introduce some other codes for specific errors
-        if (code.equals("0000")){ //0000 means distributor service has received the req and stored it
-            log.info("Request Success");
+        try{
 
-            OrderRequest existingReq = orderRequestRepository.findById(savedReq.getId())
-                    .orElseThrow(null);
-            existingReq.setStatus("RECEIVED BY DISTRIBUTOR");
-            orderRequestRepository.save(existingReq);
+            String code = orderServiceClient.receiveOrderReq(sendOrderReq).getBody().getCode();
 
-            createOrderReqResponse.setCode("0000");
-            createOrderReqResponse.setTitle("Success");
-            createOrderReqResponse.setMessage("Order Request sent to the distributor successfully");
-            return ResponseEntity.ok(createOrderReqResponse);
+            //todo: Introduce some other codes for specific errors
+            if (code.equals(InitConfig.SUCCESS)){ //0000 means distributor service has received the req and stored it
+                log.info("Request Success");
 
-        } else {
-            log.info("The request has failed");
+                OrderRequest existingReq = orderRequestRepository.findById(savedReq.getId())
+                        .orElseThrow(null);
+                existingReq.setStatus("RECEIVED BY DISTRIBUTOR");
+                orderRequestRepository.save(existingReq);
 
+                createOrderReqResponse.setCode(InitConfig.SUCCESS);
+                createOrderReqResponse.setTitle(InitConfig.TITLE_SUCCESS);
+                createOrderReqResponse.setMessage("Order Request sent to the distributor successfully");
+                return ResponseEntity.ok(createOrderReqResponse);
+
+            } else {
+                log.info("Unsuccessful Response");
+
+                OrderRequest existingReq = orderRequestRepository.findById(savedReq.getId())
+                        .orElseThrow(null);
+                existingReq.setStatus("FAILED");
+                orderRequestRepository.save(existingReq);
+
+                createOrderReqResponse.setCode(InitConfig.UNSUCCESSFUL_RESPONSE);
+                createOrderReqResponse.setTitle(InitConfig.TITLE_FAILED);
+                createOrderReqResponse.setMessage("Response unsuccessful");
+                return ResponseEntity.badRequest().body(createOrderReqResponse);
+            }
+
+        } catch (Exception e){
+            log.error(e.getMessage());
+
+            //set status to failed
             OrderRequest existingReq = orderRequestRepository.findById(savedReq.getId())
                     .orElseThrow(null);
             existingReq.setStatus("FAILED");
             orderRequestRepository.save(existingReq);
 
-            createOrderReqResponse.setCode("Code");
-            createOrderReqResponse.setTitle("Failed");
+            createOrderReqResponse.setCode(InitConfig.REQUEST_FAILED);
+            createOrderReqResponse.setTitle(InitConfig.TITLE_FAILED);
             createOrderReqResponse.setMessage("Request Failed");
             return ResponseEntity.badRequest().body(createOrderReqResponse);
         }
@@ -508,8 +585,8 @@ public class RetailerService {
         if (authorizationHeader == null || authorizationHeader.isEmpty()) {
             log.warn("Authorization header is missing or empty. Request cannot be processed.");
 
-            checkOrderStatusResponse.setCode("Code");
-            checkOrderStatusResponse.setTitle("Failed");
+            checkOrderStatusResponse.setCode(InitConfig.TOKEN_MISSING);
+            checkOrderStatusResponse.setTitle(InitConfig.TITLE_FAILED);
             checkOrderStatusResponse.setMessage("Token is missing");
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(checkOrderStatusResponse);
         }
@@ -521,8 +598,8 @@ public class RetailerService {
         if(!tokenValidity){
             log.info("Token invalid or expired");
 
-            checkOrderStatusResponse.setCode("Code");
-            checkOrderStatusResponse.setTitle("Failed");
+            checkOrderStatusResponse.setCode(InitConfig.TOKEN_INVALID_EXPIRED);
+            checkOrderStatusResponse.setTitle(InitConfig.TITLE_FAILED);
             checkOrderStatusResponse.setMessage("Token is Invalid or Expired");
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(checkOrderStatusResponse);
         }
@@ -533,8 +610,8 @@ public class RetailerService {
         if(userId == null || userId.isEmpty()){
             log.info("User Id empty or null");
 
-            checkOrderStatusResponse.setCode("Code");
-            checkOrderStatusResponse.setTitle("Failed");
+            checkOrderStatusResponse.setCode(InitConfig.USERNAME_INVALID);
+            checkOrderStatusResponse.setTitle(InitConfig.TITLE_FAILED);
             checkOrderStatusResponse.setMessage("Invalid Username");
             return ResponseEntity.badRequest().body(checkOrderStatusResponse);
         }
@@ -544,28 +621,81 @@ public class RetailerService {
                 orElseThrow(()-> new RetailerNotFoundException("Retailer Not Found"));
         String retailerId = existingRetailer.getId();
 
-        //retrieve all requests with retailer Id
-        List<OrderRequest> orderRequestList = orderRequestRepository.findAll(retailerId);
+        //retrieve all requests with retailerId
+        List<OrderRequest> orderRequestList = orderRequestRepository.findByRetailerId(retailerId);
 
         if(orderRequestList == null || orderRequestList.isEmpty()){
             log.info("List is empty");
 
-            checkOrderStatusResponse.setCode("0000");
-            checkOrderStatusResponse.setTitle("Success");
+            checkOrderStatusResponse.setCode(InitConfig.LIST_EMPTY);
+            checkOrderStatusResponse.setTitle(InitConfig.TITLE_FAILED);
             checkOrderStatusResponse.setMessage("List Is Empty");
             return ResponseEntity.ok(checkOrderStatusResponse);
         }
 
         log.info("List is not empty");
 
-        checkOrderStatusResponse.setCode("0000");
-        checkOrderStatusResponse.setTitle("Success");
+        // Filter the id and status fields using a loop
+        List<Map<String, Object>> filteredList = new ArrayList<>();
+        for (OrderRequest orderRequest : orderRequestList) {
+            Map<String, Object> map = new HashMap<>();
+            map.put("id", orderRequest.getId());
+            map.put("status", orderRequest.getStatus());
+            filteredList.add(map);
+        }
+
+        checkOrderStatusResponse.setCode(InitConfig.SUCCESS);
+        checkOrderStatusResponse.setTitle(InitConfig.TITLE_SUCCESS);
         checkOrderStatusResponse.setMessage("List retrieved successfully");
-        checkOrderStatusResponse.setOrderReqList(orderRequestList);
+        checkOrderStatusResponse.setOrderReqList(filteredList);
         return ResponseEntity.ok(checkOrderStatusResponse);
     }
 
     /**
      * // Receiving an order request status update
      */
+    public ResponseEntity<CommonResponse> updateOrderReqStatus(UpdateOrderReqStatus updateOrderReqStatus){
+        CommonResponse updateOrderStatusResponse = new CommonResponse();
+
+        OrderRequest existingReq = orderRequestRepository.findById(updateOrderReqStatus.getOrderId())
+                .orElseThrow(()-> new OrderRequestNotFoundException("Order Request Not Found"));
+
+        //todo: Enable both APPROVE and REJECT flows
+        if(existingReq.getStatus().equalsIgnoreCase("PENDING")){
+            log.info("Changing the status");
+
+            if(updateOrderReqStatus.getStatus().equalsIgnoreCase("APPROVE")){
+
+                existingReq.setStatus("APPROVED");
+                orderRequestRepository.save(existingReq);
+
+                updateOrderStatusResponse.setCode(InitConfig.SUCCESS);
+                updateOrderStatusResponse.setTitle(InitConfig.TITLE_SUCCESS);
+                updateOrderStatusResponse.setMessage("Successfully Status Changed");
+
+            } else if (updateOrderReqStatus.getStatus().equalsIgnoreCase("REJECT")) {
+
+                existingReq.setStatus("REJECTED");
+                orderRequestRepository.save(existingReq);
+
+                updateOrderStatusResponse.setCode(InitConfig.SUCCESS);
+                updateOrderStatusResponse.setTitle(InitConfig.TITLE_SUCCESS);
+                updateOrderStatusResponse.setMessage("Successfully Status Changed");
+
+            } else {
+                updateOrderStatusResponse.setCode("CODE");
+                updateOrderStatusResponse.setTitle(InitConfig.TITLE_FAILED);
+                updateOrderStatusResponse.setMessage("Unidentified option");
+
+            }
+
+        } else {
+            log.info("Status has changed already");
+
+            updateOrderStatusResponse.setCode("Code");
+            updateOrderStatusResponse.setTitle(InitConfig.TITLE_FAILED);
+            updateOrderStatusResponse.setMessage("Status has already changed");
+        }
+        return ResponseEntity.ok(updateOrderStatusResponse);
+    }
 }

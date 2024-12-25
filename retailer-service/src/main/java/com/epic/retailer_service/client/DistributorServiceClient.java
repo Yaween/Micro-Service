@@ -15,9 +15,9 @@ public interface DistributorServiceClient {
     @PostMapping("/api/distributor/retailer-request")
     ResponseEntity<CommonResponse> requestDistributor(@RequestBody SendDistributorReq sendDistributorReq);
 
-    @GetMapping("/api/distributor/getAllDistribuors")
+    @GetMapping("/api/distributor/getAllDistributors")
     ResponseEntity<CommonResponse> getAllDistributors();
 
-    @PostMapping("/api/distributor/receiveOrderReq")
-    ResponseEntity<CommonResponse> receiveOrderReq(@RequestBody SendOrderReq sendOrderReq);
+    @GetMapping("/api/distributor/getAllProducts")
+    ResponseEntity<CommonResponse> getAllProducts();
 }

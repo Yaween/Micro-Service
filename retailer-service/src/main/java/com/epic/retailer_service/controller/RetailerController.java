@@ -19,6 +19,7 @@ public class RetailerController {
      */
     @PostMapping("/add")
     public ResponseEntity<CommonResponse> addRetailer(@RequestBody AddRetailerReq addDistributorReq){
+        log.info("Add Retailer Request Received");
         return retailerService.addRetailer(addDistributorReq);
     }
 
@@ -29,6 +30,7 @@ public class RetailerController {
     public ResponseEntity<CommonResponse> updateRetailer(
             @RequestHeader(value = "Authorization", required = false) String authorizationHeader,
             @RequestBody UpdateRetailerReq updateRetailerReq){
+        log.info("Update Retailer Request Received");
         return retailerService.updateRetailer(authorizationHeader, updateRetailerReq);
     }
 
@@ -40,7 +42,20 @@ public class RetailerController {
             @RequestHeader(value = "Authorization", required = false) String authorizationHeader,
             @RequestBody String username
     ){
+        log.info("Get Distributors Request Received");
         return retailerService.getAllDistributors(authorizationHeader, username);
+    }
+
+    /**
+     * // Get all available products
+     */
+    @GetMapping("/get-products")
+    public ResponseEntity<CommonResponse> getProducts(
+            @RequestHeader(value = "Authorization", required = false) String authorizationHeader,
+            @RequestBody String username
+    ){
+        log.info("Get Products Request Received");
+        return retailerService.getProducts(authorizationHeader, username);
     }
 
     /**
@@ -50,6 +65,7 @@ public class RetailerController {
     public ResponseEntity<CommonResponse> requestDistributor(
             @RequestHeader(value = "Authorization", required = false) String authorizationHeader,
             @RequestBody DistributorRequest distributorRequest){
+        log.info("Request Distributor Request Received");
         return retailerService.requestDistributor(authorizationHeader,distributorRequest);
     }
 
@@ -60,6 +76,7 @@ public class RetailerController {
     public ResponseEntity<CommonResponse> requestDistributorStatusCheck(
             @RequestHeader(value = "Authorization", required = false) String authorizationHeader,
             @RequestBody DistributorRequestStatusCheck distributorRequestStatusCheck){
+        log.info("Request Distributor Status Check Request Received");
         return retailerService.requestDistributorStatusCheck(authorizationHeader, distributorRequestStatusCheck);
     }
 
@@ -70,6 +87,7 @@ public class RetailerController {
     public ResponseEntity<CommonResponse> requestDistributorStatusUpdate(
             @RequestHeader(value = "Authorization", required = false) String authorizationHeader,
             @RequestBody DistributorRequestStatusUpdate distributorRequestStatusUpdate){
+        log.info("Request Distributor Status Update Request Received");
         return retailerService.requestDistributorStatusUpdate(authorizationHeader, distributorRequestStatusUpdate);
     }
 
@@ -80,6 +98,7 @@ public class RetailerController {
     public ResponseEntity<CommonResponse> createOrderRequest(
             @RequestHeader(value = "Authorization", required = false) String authorizationHeader,
             @RequestBody CreateOrderReq createOrderReq ){
+        log.info("Create Order Request Received");
         return retailerService.createOrderRequest(authorizationHeader, createOrderReq);
     }
 
@@ -90,6 +109,17 @@ public class RetailerController {
     public ResponseEntity<CommonResponse> checkOrderReqStatus(
             @RequestHeader(value = "Authorization", required = false) String authorizationHeader,
             @RequestBody CheckOrderReqStatus checkOrderReqStatus ){
+        log.info("Check Order Req Status Request Received");
         return retailerService.checkOrderReqStatus(authorizationHeader, checkOrderReqStatus);
+    }
+
+    /**
+     * // Receiving an order request status update
+     */
+    @PostMapping("/update-order-req-status")
+    public ResponseEntity<CommonResponse> updateOrderReqStatus(
+            @RequestBody UpdateOrderReqStatus updateOrderReqStatus){
+        log.info("Update Order Req Status Request Received");
+        return retailerService.updateOrderReqStatus(updateOrderReqStatus);
     }
 }

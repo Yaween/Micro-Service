@@ -22,6 +22,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -52,10 +56,24 @@ public class AdminService {
         if(tokenValidity){
             log.info("Token is valid");
 
+            List<UserApproval> userApprovalList = userApprovalRepository.findAll();
+
+            List<Map<String, Object>> filteredList = new ArrayList<>();
+            for (UserApproval userApproval : userApprovalList) {
+                Map<String, Object> map = new HashMap<>();
+                if(userApproval.getStatus().equalsIgnoreCase("PENDING")){
+                    map.put("id", userApproval.getId());
+                    map.put("userId", userApproval.getUserId());
+                    map.put("userType", userApproval.getUserType());
+                    map.put("username", userApproval.getUsername());
+                    filteredList.add(map);
+                }
+            }
+
             getApprovalListResponse.setCode("0000");
             getApprovalListResponse.setTitle("Success");
             getApprovalListResponse.setMessage("List retrieved Successfully");
-            getApprovalListResponse.setApprovalList(userApprovalRepository.findAll());
+            getApprovalListResponse.setApprovalList(filteredList);
             return ResponseEntity.ok(getApprovalListResponse);
 
         } else {
@@ -113,15 +131,8 @@ public class AdminService {
                     if(changeApprovalReq.getStatusCommand().equalsIgnoreCase("APPROVE")){
                         log.info("request is approving");
 
-                        approvalReq.setStatus("APPROVED");
-                        approvalReq.setAdminUserId(adminUserId);
-                        userApprovalRepository.save(approvalReq);
-
                         User existingUser = userRepository.findById(approvalReq.getUserId()).
                                 orElseThrow(null);
-                        existingUser.setStatus("APPROVED");
-                        existingUser.setUpdatedTime(LocalDateTime.now());
-                        userRepository.save(existingUser);
 
                         if(existingUser.getUserType().equalsIgnoreCase("DISTRIBUTOR")){
                             SendDistributorAddReq sendDistributorAddReq = new SendDistributorAddReq();
@@ -130,6 +141,14 @@ public class AdminService {
                             String code = distributorServiceClient.addDistributor(sendDistributorAddReq).getBody().getCode();
 
                             if (code.equals("0000")){
+                                approvalReq.setStatus("APPROVED");
+                                approvalReq.setAdminUserId(adminUserId);
+                                userApprovalRepository.save(approvalReq);
+
+                                existingUser.setStatus("APPROVED");
+                                existingUser.setUpdatedTime(LocalDateTime.now());
+                                userRepository.save(existingUser);
+
                                 approveOrRejectResponse.setCode("0000");
                                 approveOrRejectResponse.setTitle("Success");
                                 approveOrRejectResponse.setMessage("Request was approved and added as distributor");

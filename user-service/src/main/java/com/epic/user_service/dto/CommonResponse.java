@@ -9,6 +9,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.util.List;
+import java.util.Map;
 
 @Data
 @AllArgsConstructor
@@ -25,7 +26,7 @@ public class CommonResponse {
     private User user;
 
     @JsonInclude(JsonInclude.Include.NON_EMPTY)
-    private List<UserApproval> approvalList;
+    private List<Map<String, Object>> approvalList;
 
     @JsonInclude(JsonInclude.Include.NON_EMPTY)
     private UserData userData;
