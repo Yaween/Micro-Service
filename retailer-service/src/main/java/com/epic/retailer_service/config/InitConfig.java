@@ -30,6 +30,7 @@ public class InitConfig {
     public static final String DISTRIBUTOR_REQUEST_NOT_FOUND = "1024";
     public static final String ORDER_REQUEST_NOT_FOUND = "1025";
     public static final String PRODUCT_ID_NOT_FOUND = "1026";
+    public static final String COMMON_EXCEPTION = "1027";
 
     //titles
     public static final String TITLE_SUCCESS = "SUCCESS";
