@@ -229,6 +229,28 @@ public class RetailerDistributorService {
     public CommonResponse checkDistributorAvailability(DistributorCheckDTO distributorCheckDTO) {
         CommonResponse response = new CommonResponse();
 
+        // Validate input fields
+        if (distributorCheckDTO == null) {
+            response.setCode("400");
+            response.setTitle("Failed");
+            response.setMessage("Input data is missing.");
+            return response;
+        }
+
+        if (distributorCheckDTO.getRetailerId() == null || distributorCheckDTO.getRetailerId().isEmpty()) {
+            response.setCode("400");
+            response.setTitle("Failed");
+            response.setMessage("Retailer ID is required.");
+            return response;
+        }
+
+        if (distributorCheckDTO.getDistributorId() == null || distributorCheckDTO.getDistributorId().isEmpty()) {
+            response.setCode("400");
+            response.setTitle("Failed");
+            response.setMessage("Distributor ID is required.");
+            return response;
+        }
+
         // Generate the unique checking key
         String checkingKey = distributorCheckDTO.getRetailerId() + distributorCheckDTO.getDistributorId();
 
