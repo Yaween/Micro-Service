@@ -18,15 +18,17 @@ public class CommonResponse {
 
     @JsonInclude(JsonInclude.Include.NON_EMPTY)
     private Object data;
+    @JsonInclude(JsonInclude.Include.NON_EMPTY)
+    private List<ProductDTO> productList;
+    @JsonInclude(JsonInclude.Include.NON_EMPTY)
+    private List<Map<String, Object>> orderRequestList;
 
-    public void setData(List<Map<String, Object>> pendingRequests) {
-    }
+//    public void setData(List<Map<String, Object>> pendingRequests) {
+//    }
 
     public void setData(Object data) {
         this.data = data;
     }
 
-    private List<ProductDTO> productList;
-    private List<Map<String, Object>> orderRequestList;
 }
 

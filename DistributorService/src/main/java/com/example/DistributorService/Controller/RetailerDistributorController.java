@@ -41,6 +41,22 @@ public class RetailerDistributorController {
         return ResponseEntity.ok(response);
     }
 
+//    @PostMapping("/retailer-distributor-availability")
+//    public ResponseEntity<CommonResponse> checkDistributorAvailability(
+//            @RequestBody DistributorCheckDTO distributorCheckDTO
+//    )
+//    {
+//        return retailerDistributorService.checkDistributorAvailability(distributorCheckDTO);
+//    }
+
+    @PostMapping("/retailer-distributor-availability")
+    public ResponseEntity<CommonResponse> checkDistributorAvailability(
+            @RequestBody DistributorCheckDTO distributorCheckDTO
+    ) {
+        CommonResponse response = retailerDistributorService.checkDistributorAvailability(distributorCheckDTO);
+        return ResponseEntity.status(Integer.parseInt(response.getCode())).body(response);
+    }
+
 
 }
 

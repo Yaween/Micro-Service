@@ -135,11 +135,11 @@ public class ProductService {
             log.info("Order accepted for distributor ID: {}", requestDTO.getDistributorId());
 
             // Update the option as "Accepted"
-            mapping.setOption("Accepted");
+            mapping.setOption("Approved");
             distributorProductMapperRepository.save(mapping);
 
             response.setCode("200");
-            response.setTitle("Accepted");
+            response.setTitle("Approved");
             response.setMessage("Order processed successfully");
         } else {
             log.warn("Insufficient stock for distributor ID: {}", requestDTO.getDistributorId());

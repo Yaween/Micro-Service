@@ -188,7 +188,7 @@ public class RetailerDistributorService {
         // If status is 'approve', add to the retailer distributor mapper table
         if ("approve".equalsIgnoreCase(requestDTO.getStatus())) {
             RetailerDistributorMapper retailerDistributorMapper = new RetailerDistributorMapper();
-            retailerDistributorMapper.setId(UniqueIdGenerator.generateUniqueId());
+            retailerDistributorMapper.setId(existingReq.getRetailerId() + existingReq.getDistributorId());
             retailerDistributorMapper.setRetailerRequestId(existingReq.getRetailerRequestId());
             retailerDistributorMapper.setRetailerId(existingReq.getRetailerId());
             retailerDistributorMapper.setDistributorId(existingReq.getDistributorId());
@@ -202,6 +202,54 @@ public class RetailerDistributorService {
 
         return response;
     }
+
+
+//    public ResponseEntity<CommonResponse> checkDistributorAvailability(DistributorCheckDTO distributorCheckDTO) {
+//        CommonResponse response = new CommonResponse();
+//        String checkingKey = distributorCheckDTO.getRetailerId() + distributorCheckDTO.getDistributorId();
+//
+//        if(retailerDistributorMapperRepository.findById(checkingKey).isPresent()){
+//            log.info("Record found");
+//
+//            response.setCode("0000");
+//            response.setTitle("Success");
+//            response.setMessage("Record Found");
+//            return ResponseEntity.ok(response);
+//
+//        } else {
+//            log.info("Record not found");
+//
+//            response.setCode("Code");
+//            response.setTitle("Failed");
+//            response.setMessage("Record Not Found");
+//            return ResponseEntity.badRequest().body(response);
+//        }
+//    }
+
+    public CommonResponse checkDistributorAvailability(DistributorCheckDTO distributorCheckDTO) {
+        CommonResponse response = new CommonResponse();
+
+        // Generate the unique checking key
+        String checkingKey = distributorCheckDTO.getRetailerId() + distributorCheckDTO.getDistributorId();
+
+        // Check if the record exists
+        if (retailerDistributorMapperRepository.findById(checkingKey).isPresent()) {
+            log.info("Record found");
+
+            response.setCode("200");
+            response.setTitle("Success");
+            response.setMessage("Record Found");
+        } else {
+            log.info("Record not found");
+
+            response.setCode("400");
+            response.setTitle("Failed");
+            response.setMessage("Record Not Found");
+        }
+
+        return response;
+    }
+
 }
 
 

@@ -10,7 +10,7 @@ import lombok.Data;
 public class RetailerDistributorMapper {
 
     @Id
-    @Column(name = "id", length = 16)
+    @Column(name = "id")
     private String id; // Unique generated ID
 
     @Column(name = "retailer_request_id", nullable = false)
