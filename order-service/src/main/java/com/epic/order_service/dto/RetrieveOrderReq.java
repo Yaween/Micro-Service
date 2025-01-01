@@ -7,7 +7,6 @@ import lombok.NoArgsConstructor;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class UpdateOrderReq {
+public class RetrieveOrderReq {
     private String orderId;
-    private String option; //approve or reject after checking availability
 }

@@ -19,4 +19,7 @@ public class CommonResponse {
 
     @JsonInclude(JsonInclude.Include.NON_EMPTY)
     private List<Map<String, Object>> orderList;
+
+    @JsonInclude(JsonInclude.Include.NON_EMPTY)
+    private OrderData orderData;
 }

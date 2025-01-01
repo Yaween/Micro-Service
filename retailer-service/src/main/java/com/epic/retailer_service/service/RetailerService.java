@@ -303,31 +303,9 @@ public class RetailerService {
     /**
      * // Updating the request status of Distributor request after distributors response
      */
-    public ResponseEntity<CommonResponse> requestDistributorStatusUpdate(String authorizationHeader, DistributorRequestStatusUpdate distributorRequestStatusUpdate) {
+    public ResponseEntity<CommonResponse> requestDistributorStatusUpdate(DistributorRequestStatusUpdate distributorRequestStatusUpdate) {
         CommonResponse requestStatusUpdateResponse = new CommonResponse();
         RequestValidator requestValidator = new RequestValidator();
-
-        if (authorizationHeader == null || authorizationHeader.isEmpty()) {
-            log.warn("Authorization header is missing or empty. Request cannot be processed.");
-
-            requestStatusUpdateResponse.setCode(InitConfig.TOKEN_MISSING);
-            requestStatusUpdateResponse.setTitle(InitConfig.TITLE_FAILED);
-            requestStatusUpdateResponse.setMessage("Token is missing");
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(requestStatusUpdateResponse);
-        }
-
-        // Extract and validate the token
-        String token = authorizationHeader.substring(7);
-        boolean tokenValidity = requestValidator.validateReq(distributorRequestStatusUpdate.getUsername(), "DISTRIBUTOR", token);
-
-        if(!tokenValidity){
-            log.info("Token invalid or expired");
-
-            requestStatusUpdateResponse.setCode(InitConfig.TOKEN_INVALID_EXPIRED);
-            requestStatusUpdateResponse.setTitle(InitConfig.TITLE_FAILED);
-            requestStatusUpdateResponse.setMessage("Token is Invalid or Expired");
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(requestStatusUpdateResponse);
-        }
 
         AddDistributorReq existingReq = addDistributorReqRepository.findById(distributorRequestStatusUpdate.getRetailerReqId())
                 .orElseThrow(()-> new DistributorReqNotFoundException("Request Not Found"));
@@ -369,7 +347,7 @@ public class RetailerService {
     /**
      * // Get all available distributors
      */
-    public ResponseEntity<CommonResponse> getAllDistributors(String authorizationHeader, String username) {
+    public ResponseEntity<CommonResponse> getAllDistributors(String authorizationHeader, GetAllDistributorsReq getAllDistributorsReq) {
         CommonResponse getDistributorsResponse = new CommonResponse();
         RequestValidator requestValidator = new RequestValidator();
 
@@ -384,7 +362,7 @@ public class RetailerService {
 
         // Extract and validate the token
         String token = authorizationHeader.substring(7);
-        boolean tokenValidity = requestValidator.validateReq(username, "RETAILER", token);
+        boolean tokenValidity = requestValidator.validateReq(getAllDistributorsReq.getUsername(), "RETAILER", token);
 
         if(!tokenValidity){
             log.info("Token invalid or expired");
@@ -508,69 +486,102 @@ public class RetailerService {
                 orElseThrow(()-> new RetailerNotFoundException("Retailer Not Found"));
         String retailerId = existingRetailer.getId();
 
-        //set the order req to database
-        OrderRequest orderRequest = new OrderRequest();
-        orderRequest.setId(UniqueIdGenerator.generateUniqueId());
-        orderRequest.setRetailerId(retailerId);
-        orderRequest.setDistributorId(createOrderReq.getDistributorId());
-        orderRequest.setProductId(createOrderReq.getProductId());
-        orderRequest.setProductCount(createOrderReq.getProductCount());
-        orderRequest.setStatus("INITIALIZED");
-        OrderRequest savedReq = orderRequestRepository.save(orderRequest);
-        log.info("Order Req saved in database successfully");
+        //check retailer-distributor connection
+        SendDistributorCheckReq sendDistributorCheckReq = new SendDistributorCheckReq();
+        sendDistributorCheckReq.setRetailerId(retailerId);
+        sendDistributorCheckReq.setDistributorId(createOrderReq.getDistributorId());
 
-        //set the sending req
-        SendOrderReq sendOrderReq = new SendOrderReq();
-        sendOrderReq.setOrderId(savedReq.getId());
-        sendOrderReq.setRetailerId(savedReq.getRetailerId());
-        sendOrderReq.setDistributorId(savedReq.getDistributorId());
-        sendOrderReq.setProductId(savedReq.getProductId());
-        sendOrderReq.setProductCount(savedReq.getProductCount());
+        String codeDistributorCheck = distributorServiceClient.checkDistributorAvailability(sendDistributorCheckReq).getBody().getCode();
 
-        try{
+        if (codeDistributorCheck.equalsIgnoreCase("0000")){
 
-            String code = orderServiceClient.receiveOrderReq(sendOrderReq).getBody().getCode();
+            //set the order req to database
+            OrderRequest orderRequest = new OrderRequest();
+            orderRequest.setId(UniqueIdGenerator.generateUniqueId());
+            orderRequest.setRetailerId(retailerId);
+            orderRequest.setDistributorId(createOrderReq.getDistributorId());
+            orderRequest.setProductId(createOrderReq.getProductId());
+            orderRequest.setProductCount(createOrderReq.getProductCount());
+            orderRequest.setStatus("INITIALIZED");
+            OrderRequest savedReq = orderRequestRepository.save(orderRequest);
+            log.info("Order Req saved in database successfully");
 
-            //todo: Introduce some other codes for specific errors
-            if (code.equals(InitConfig.SUCCESS)){ //0000 means distributor service has received the req and stored it
-                log.info("Request Success");
+            //set the sending req
+            SendOrderReq sendOrderReq = new SendOrderReq();
+            sendOrderReq.setOrderId(savedReq.getId());
+            sendOrderReq.setRetailerId(savedReq.getRetailerId());
+            sendOrderReq.setDistributorId(savedReq.getDistributorId());
+            sendOrderReq.setProductId(savedReq.getProductId());
+            sendOrderReq.setProductCount(savedReq.getProductCount());
 
-                OrderRequest existingReq = orderRequestRepository.findById(savedReq.getId())
-                        .orElseThrow(null);
-                existingReq.setStatus("RECEIVED BY DISTRIBUTOR");
-                orderRequestRepository.save(existingReq);
+            try{
 
-                createOrderReqResponse.setCode(InitConfig.SUCCESS);
-                createOrderReqResponse.setTitle(InitConfig.TITLE_SUCCESS);
-                createOrderReqResponse.setMessage("Order Request sent to the distributor successfully");
-                return ResponseEntity.ok(createOrderReqResponse);
+                String code = orderServiceClient.receiveOrderReq(sendOrderReq).getBody().getCode();
 
-            } else {
-                log.info("Unsuccessful Response");
+                //todo: Introduce some other codes for specific errors
+                if (code.equals(InitConfig.SUCCESS)){ //0000 means distributor service has received the req and stored it
+                    log.info("Request Success");
 
+                    OrderRequest existingReq = orderRequestRepository.findById(savedReq.getId())
+                            .orElseThrow(null);
+                    existingReq.setStatus("RECEIVED BY DISTRIBUTOR");
+                    orderRequestRepository.save(existingReq);
+
+                    createOrderReqResponse.setCode(InitConfig.SUCCESS);
+                    createOrderReqResponse.setTitle(InitConfig.TITLE_SUCCESS);
+                    createOrderReqResponse.setMessage("Order Request sent to the distributor successfully");
+                    return ResponseEntity.ok(createOrderReqResponse);
+
+                } else if(code.equalsIgnoreCase(InitConfig.PRODUCT_ID_NOT_FOUND)) {
+
+                    log.info("product not found");
+
+                    OrderRequest existingReq = orderRequestRepository.findById(savedReq.getId())
+                            .orElseThrow(null);
+                    existingReq.setStatus("FAILED");
+                    orderRequestRepository.save(existingReq);
+
+                    createOrderReqResponse.setCode(InitConfig.PRODUCT_ID_NOT_FOUND);
+                    createOrderReqResponse.setTitle(InitConfig.TITLE_FAILED);
+                    createOrderReqResponse.setMessage("Product not Found");
+                    return ResponseEntity.badRequest().body(createOrderReqResponse);
+
+                }else {
+
+                    log.info("Unsuccessful Response");
+
+                    OrderRequest existingReq = orderRequestRepository.findById(savedReq.getId())
+                            .orElseThrow(null);
+                    existingReq.setStatus("FAILED");
+                    orderRequestRepository.save(existingReq);
+
+                    createOrderReqResponse.setCode(InitConfig.UNSUCCESSFUL_RESPONSE);
+                    createOrderReqResponse.setTitle(InitConfig.TITLE_FAILED);
+                    createOrderReqResponse.setMessage("Response unsuccessful");
+                    return ResponseEntity.badRequest().body(createOrderReqResponse);
+                }
+
+            } catch (Exception e){
+                log.error(e.getMessage());
+
+                //set status to failed
                 OrderRequest existingReq = orderRequestRepository.findById(savedReq.getId())
                         .orElseThrow(null);
                 existingReq.setStatus("FAILED");
                 orderRequestRepository.save(existingReq);
 
-                createOrderReqResponse.setCode(InitConfig.UNSUCCESSFUL_RESPONSE);
+                createOrderReqResponse.setCode(InitConfig.REQUEST_FAILED);
                 createOrderReqResponse.setTitle(InitConfig.TITLE_FAILED);
-                createOrderReqResponse.setMessage("Response unsuccessful");
+                createOrderReqResponse.setMessage("Request Failed");
                 return ResponseEntity.badRequest().body(createOrderReqResponse);
             }
 
-        } catch (Exception e){
-            log.error(e.getMessage());
+        } else {
+            log.error("Retailer-Distributor connection not found");
 
-            //set status to failed
-            OrderRequest existingReq = orderRequestRepository.findById(savedReq.getId())
-                    .orElseThrow(null);
-            existingReq.setStatus("FAILED");
-            orderRequestRepository.save(existingReq);
-
-            createOrderReqResponse.setCode(InitConfig.REQUEST_FAILED);
-            createOrderReqResponse.setTitle(InitConfig.TITLE_FAILED);
-            createOrderReqResponse.setMessage("Request Failed");
+            createOrderReqResponse.setCode("Code");
+            createOrderReqResponse.setTitle("Failed");
+            createOrderReqResponse.setMessage("Retailer does not have that distributor added to the profile");
             return ResponseEntity.badRequest().body(createOrderReqResponse);
         }
     }
@@ -660,7 +671,6 @@ public class RetailerService {
         OrderRequest existingReq = orderRequestRepository.findById(updateOrderReqStatus.getOrderId())
                 .orElseThrow(()-> new OrderRequestNotFoundException("Order Request Not Found"));
 
-        //todo: Enable both APPROVE and REJECT flows
         if(existingReq.getStatus().equalsIgnoreCase("PENDING")){
             log.info("Changing the status");
 

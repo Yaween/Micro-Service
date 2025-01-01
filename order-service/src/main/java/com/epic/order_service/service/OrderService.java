@@ -32,8 +32,9 @@ public class OrderService {
     public ResponseEntity<CommonResponse> receiveOrder(OrderReceiveReq orderReceiveReq){
         CommonResponse receiveOrderResponse = new CommonResponse();
 
+        ProductAvailabilityCheckDTO productAvailabilityCheck = new ProductAvailabilityCheckDTO(orderReceiveReq.getProductId());
         //checking product availability
-        boolean productAvailability = distributorServiceClient.productAvailability(orderReceiveReq.getProductId());
+        boolean productAvailability = distributorServiceClient.productAvailability(productAvailabilityCheck);
 
         if(!productAvailability){
             log.info("Product with given product is not available.");
@@ -41,7 +42,7 @@ public class OrderService {
             receiveOrderResponse.setCode(InitConfig.PRODUCT_ID_NOT_FOUND);
             receiveOrderResponse.setTitle(InitConfig.TITLE_FAILED);
             receiveOrderResponse.setMessage("Product with given product is not available.");
-            return ResponseEntity.badRequest().body(receiveOrderResponse);
+            return ResponseEntity.ok(receiveOrderResponse);
         }
 
         //saving order in DB
@@ -63,33 +64,8 @@ public class OrderService {
         return ResponseEntity.ok(receiveOrderResponse);
     }
 
-    public ResponseEntity<CommonResponse> getOrders(String authorizationHeader, GetOrdersReq getOrdersReq){
+    public ResponseEntity<CommonResponse> getOrders(GetOrdersReq getOrdersReq){
         CommonResponse getOrdersResponse = new CommonResponse();
-        RequestValidator requestValidator = new RequestValidator();
-
-        if (authorizationHeader == null || authorizationHeader.isEmpty()) {
-            log.warn("Authorization header is missing or empty. Request cannot be processed.");
-
-            getOrdersResponse.setCode(InitConfig.TOKEN_MISSING);
-            getOrdersResponse.setTitle(InitConfig.TITLE_FAILED);
-            getOrdersResponse.setMessage("Token is missing");
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(getOrdersResponse);
-        }
-
-        // Extract and validate the token
-        String token = authorizationHeader.substring(7);
-        boolean tokenValidity = requestValidator.validateReq(getOrdersReq.getUsername(), "DISTRIBUTOR", token);
-
-        if(!tokenValidity){
-            log.info("Token invalid or expired");
-
-            getOrdersResponse.setCode(InitConfig.TOKEN_INVALID_EXPIRED);
-            getOrdersResponse.setTitle(InitConfig.TITLE_FAILED);
-            getOrdersResponse.setMessage("Token is Invalid or Expired");
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(getOrdersResponse);
-        }
-
-        log.info("Token Validated");
 
         List<Order> orderList = orderRepository.findByDistributorId(getOrdersReq.getDistributorId());
 
@@ -105,22 +81,25 @@ public class OrderService {
             }
         }
 
-        getOrdersResponse.setCode(InitConfig.SUCCESS);
-        getOrdersResponse.setTitle(InitConfig.TITLE_SUCCESS);
-        getOrdersResponse.setMessage("Order List Retrieved successfully");
-        getOrdersResponse.setOrderList(filteredOrderList);
-        return ResponseEntity.ok(getOrdersResponse);
+        if (filteredOrderList.isEmpty()){
+            getOrdersResponse.setCode(InitConfig.SUCCESS);
+            getOrdersResponse.setTitle(InitConfig.TITLE_SUCCESS);
+            getOrdersResponse.setMessage("Order List is empty");
+            getOrdersResponse.setOrderList(null);
+            return ResponseEntity.ok(getOrdersResponse);
+
+        } else {
+            getOrdersResponse.setCode(InitConfig.SUCCESS);
+            getOrdersResponse.setTitle(InitConfig.TITLE_SUCCESS);
+            getOrdersResponse.setMessage("Order List Retrieved successfully");
+            getOrdersResponse.setOrderList(filteredOrderList);
+            return ResponseEntity.ok(getOrdersResponse);
+        }
     }
 
-    public ResponseEntity<CommonResponse> updateOrder(String authorizationHeader, UpdateOrderReq updateOrderReq) {
+    public ResponseEntity<CommonResponse> updateOrder(UpdateOrderReq updateOrderReq) {
         CommonResponse updateOrderResponse = new CommonResponse();
         AuthorizationChecker authorizationChecker = new AuthorizationChecker();
-
-        CommonResponse response = authorizationChecker.authorizationCheck(authorizationHeader,
-                updateOrderReq.getUsername(), "DISTRIBUTOR");
-
-        if(response.getCode().equalsIgnoreCase(InitConfig.TOKEN_VALID)){
-            log.info("Token Valid");
 
             Order order = orderRepository.findById(updateOrderReq.getOrderId()).
                     orElseThrow(null); //todo: Custom Exception should be implemented
@@ -155,7 +134,7 @@ public class OrderService {
                 } else if (updateOrderReq.getOption().equalsIgnoreCase("REJECT")) {
 
                     sendOrderReqUpdate.setOrderId(order.getRetailerOrderId());
-                    sendOrderReqUpdate.setStatus("REJECTEd");
+                    sendOrderReqUpdate.setStatus("REJECTED");
                     String code = retailerServiceClient.updateOrderReqStatus(sendOrderReqUpdate).getBody().getCode();
 
                     if(code.equalsIgnoreCase(InitConfig.SUCCESS)){
@@ -195,21 +174,20 @@ public class OrderService {
                 return ResponseEntity.badRequest().body(updateOrderResponse);
             }
 
-        } else if (response.getCode().equalsIgnoreCase(InitConfig.TOKEN_MISSING)) {
-            log.info("Token Missing");
+    }
 
-            updateOrderResponse.setCode(InitConfig.TOKEN_MISSING);
-            updateOrderResponse.setTitle(InitConfig.TITLE_FAILED);
-            updateOrderResponse.setMessage("Token is missing");
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(updateOrderResponse);
+    public ResponseEntity<CommonResponse> retrieveOrderInfo(RetrieveOrderReq retrieveOrderReq) {
+        CommonResponse retrieveOrderInfoResponse = new CommonResponse();
 
-        } else {
-            log.info("Token Invalid or Expired");
+        Order existingOrder = orderRepository.findById(retrieveOrderReq.getOrderId())
+                .orElseThrow(null);
+        String productId = existingOrder.getProductId();
+        Integer productCount = existingOrder.getProductCount();
 
-            updateOrderResponse.setCode(InitConfig.TOKEN_INVALID_EXPIRED);
-            updateOrderResponse.setTitle(InitConfig.TITLE_FAILED);
-            updateOrderResponse.setMessage("Token is Invalid or Expired");
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(updateOrderResponse);
-        }
+        retrieveOrderInfoResponse.setCode(InitConfig.SUCCESS);
+        retrieveOrderInfoResponse.setTitle(InitConfig.TITLE_SUCCESS);
+        retrieveOrderInfoResponse.setMessage("Order info retrieved successfully");
+        retrieveOrderInfoResponse.setOrderData(new OrderData(productId, productCount));
+        return ResponseEntity.ok(retrieveOrderInfoResponse);
     }
 }

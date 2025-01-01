@@ -37,13 +37,13 @@ public class RetailerController {
     /**
      * // Get all available distributors
      */
-    @GetMapping("/get-distributors")
+    @PostMapping("/get-distributors")
     public ResponseEntity<CommonResponse> getDistributors(
             @RequestHeader(value = "Authorization", required = false) String authorizationHeader,
-            @RequestBody String username
+            @RequestBody GetAllDistributorsReq getAllDistributorsReq
     ){
         log.info("Get Distributors Request Received");
-        return retailerService.getAllDistributors(authorizationHeader, username);
+        return retailerService.getAllDistributors(authorizationHeader, getAllDistributorsReq);
     }
 
     /**
@@ -85,10 +85,9 @@ public class RetailerController {
      */
     @PostMapping("/distributor-req-status-update")
     public ResponseEntity<CommonResponse> requestDistributorStatusUpdate(
-            @RequestHeader(value = "Authorization", required = false) String authorizationHeader,
             @RequestBody DistributorRequestStatusUpdate distributorRequestStatusUpdate){
         log.info("Request Distributor Status Update Request Received");
-        return retailerService.requestDistributorStatusUpdate(authorizationHeader, distributorRequestStatusUpdate);
+        return retailerService.requestDistributorStatusUpdate(distributorRequestStatusUpdate);
     }
 
     /**

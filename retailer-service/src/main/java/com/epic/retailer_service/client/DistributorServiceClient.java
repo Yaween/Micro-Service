@@ -1,6 +1,7 @@
 package com.epic.retailer_service.client;
 
 import com.epic.retailer_service.dto.CommonResponse;
+import com.epic.retailer_service.dto.SendDistributorCheckReq;
 import com.epic.retailer_service.dto.SendDistributorReq;
 import com.epic.retailer_service.dto.SendOrderReq;
 import org.springframework.cloud.openfeign.FeignClient;
@@ -20,4 +21,7 @@ public interface DistributorServiceClient {
 
     @GetMapping("/api/distributor/getAllProducts")
     ResponseEntity<CommonResponse> getAllProducts();
+
+    @PostMapping("/api/distributor/retailer-distributor-availability")
+    ResponseEntity<CommonResponse> checkDistributorAvailability(@RequestBody SendDistributorCheckReq sendDistributorCheckReq);
 }

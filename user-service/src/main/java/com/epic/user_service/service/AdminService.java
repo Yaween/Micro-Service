@@ -112,126 +112,160 @@ public class AdminService {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(approveOrRejectResponse);
         }
 
-        if(userRepository.findByUsername(changeApprovalReq.getAdminUsername()).isPresent()){
-            log.info("Admin was found");
+        String command = changeApprovalReq.getStatusCommand();
 
-            if (userApprovalRepository.findById(changeApprovalReq.getApprovalReqId()).isPresent()){
-                log.info("Approval request found");
-
-                UserApproval approvalReq = userApprovalRepository.findById(changeApprovalReq.getApprovalReqId()).
-                        orElseThrow(null);
-
-                if(approvalReq.getStatus().equalsIgnoreCase("PENDING")){
-                    log.info("Status is pending");
-
-                    User adminUser = userRepository.findByUsername(changeApprovalReq.getAdminUsername()).
-                            orElseThrow(null);
-                    String adminUserId = adminUser.getId();
-
-                    if(changeApprovalReq.getStatusCommand().equalsIgnoreCase("APPROVE")){
-                        log.info("request is approving");
-
-                        User existingUser = userRepository.findById(approvalReq.getUserId()).
-                                orElseThrow(null);
-
-                        if(existingUser.getUserType().equalsIgnoreCase("DISTRIBUTOR")){
-                            SendDistributorAddReq sendDistributorAddReq = new SendDistributorAddReq();
-                            sendDistributorAddReq.setUserId(existingUser.getId());
-
-                            String code = distributorServiceClient.addDistributor(sendDistributorAddReq).getBody().getCode();
-
-                            if (code.equals("0000")){
-                                approvalReq.setStatus("APPROVED");
-                                approvalReq.setAdminUserId(adminUserId);
-                                userApprovalRepository.save(approvalReq);
-
-                                existingUser.setStatus("APPROVED");
-                                existingUser.setUpdatedTime(LocalDateTime.now());
-                                userRepository.save(existingUser);
-
-                                approveOrRejectResponse.setCode("0000");
-                                approveOrRejectResponse.setTitle("Success");
-                                approveOrRejectResponse.setMessage("Request was approved and added as distributor");
-
-                            } else {
-                                approveOrRejectResponse.setCode("Code");
-                                approveOrRejectResponse.setTitle("Failed");
-                                approveOrRejectResponse.setMessage("Request was approved but failed adding as distributor");
-                            }
-                            return ResponseEntity.ok(approveOrRejectResponse);
-
-                        } else if (existingUser.getUserType().equalsIgnoreCase("RETAILER")) {
-                            SendRetailerAddReq sendRetailerAddReq = new SendRetailerAddReq();
-                            sendRetailerAddReq.setUserId(existingUser.getId());
-
-                            String code = retailerServiceClient.addRetailer(sendRetailerAddReq).getBody().getCode();
-
-                            if (code.equals("0000")){
-                                approveOrRejectResponse.setCode("0000");
-                                approveOrRejectResponse.setTitle("Success");
-                                approveOrRejectResponse.setMessage("Request was approved and added as retailer");
-
-                            } else {
-                                approveOrRejectResponse.setCode("Code");
-                                approveOrRejectResponse.setTitle("Failed");
-                                approveOrRejectResponse.setMessage("Request was approved but failed adding as retailer");
-                            }
-                            return ResponseEntity.ok(approveOrRejectResponse);
-
-                        } else {
-                            //todo: Complete the flow
-                            return null;
-                        }
-                    } else if (changeApprovalReq.getStatusCommand().equalsIgnoreCase("REJECT")) {
-                        log.info("request is rejecting");
-
-                        approvalReq.setStatus("REJECTED");
-                        approvalReq.setAdminUserId(adminUserId);
-                        userApprovalRepository.save(approvalReq);
-
-                        User existingUser = userRepository.findById(approvalReq.getUserId()).
-                                orElseThrow(null);
-                        existingUser.setStatus("REJECTED");
-                        existingUser.setUpdatedTime(LocalDateTime.now());
-                        userRepository.save(existingUser);
-
-                        approveOrRejectResponse.setCode("Code");
-                        approveOrRejectResponse.setTitle("Failed");
-                        approveOrRejectResponse.setMessage("Request was rejected");
-                        return ResponseEntity.ok(approveOrRejectResponse);
-
-                    } else {
-                        log.info("Unidentified status command");
-
-                        approveOrRejectResponse.setCode("Code");
-                        approveOrRejectResponse.setTitle("Failed");
-                        approveOrRejectResponse.setMessage("Status command is invalid");
-                        return ResponseEntity.ok(approveOrRejectResponse);
-                    }
-
-                } else {
-                    log.info("Request is already rejected or approved");
-
-                    approveOrRejectResponse.setCode("Code");
-                    approveOrRejectResponse.setTitle("Failed");
-                    approveOrRejectResponse.setMessage("Approval Request has already being changed");
-                    return ResponseEntity.ok(approveOrRejectResponse);
-                }
-            } else {
-                log.info("Approval Request was not found");
-
-                approveOrRejectResponse.setCode("Code");
-                approveOrRejectResponse.setTitle("Failed");
-                approveOrRejectResponse.setMessage("Approval request with the give id is not found");
-                return ResponseEntity.badRequest().body(approveOrRejectResponse);
-            }
-        } else {
-            log.info("Admin not found for the given Id");
+        if(userApprovalRepository.findById(changeApprovalReq.getApprovalReqId()).isEmpty()){
+            log.info("Approval request id is missing");
 
             approveOrRejectResponse.setCode("Code");
             approveOrRejectResponse.setTitle("Failed");
-            approveOrRejectResponse.setMessage("Admin with the given id is not found");
-            return ResponseEntity.badRequest().body(approveOrRejectResponse);
+            approveOrRejectResponse.setMessage("Approval request not found");
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(approveOrRejectResponse);
+        }
+
+        if(command.equalsIgnoreCase("approve")){
+            log.info("Approve flow");
+
+            UserApproval existingReq = userApprovalRepository.findById(changeApprovalReq.getApprovalReqId())
+                    .orElseThrow(null);
+
+            if(existingReq.getStatus().equalsIgnoreCase("pending")){
+                existingReq.setStatus("APPROVED");
+
+                User adminUser = userRepository.findByUsername(changeApprovalReq.getAdminUsername())
+                        .orElseThrow(()-> new UsernameNotFoundException("Username Not Found"));
+                String adminUserId = adminUser.getId();
+                existingReq.setAdminUserId(adminUserId);
+                userApprovalRepository.save(existingReq);
+
+                User existingUser = userRepository.findByUsername(existingReq.getUsername())
+                        .orElseThrow(()-> new UsernameNotFoundException("User Not Found"));
+                existingUser.setUpdatedTime(LocalDateTime.now());
+                existingUser.setStatus("APPROVED");
+                userRepository.save(existingUser);
+
+                if(existingReq.getUserType().equalsIgnoreCase("RETAILER")){
+                    SendRetailerAddReq sendRetailerAddReq = new SendRetailerAddReq();
+                    sendRetailerAddReq.setUserId(existingUser.getId());
+
+                    try{
+                        String code = retailerServiceClient.addRetailer(sendRetailerAddReq).getBody().getCode();
+
+                        if(code.equalsIgnoreCase("0000")){
+
+                            approveOrRejectResponse.setCode(InitConfig.SUCCESS);
+                            approveOrRejectResponse.setTitle(InitConfig.TITLE_SUCCESS);
+                            approveOrRejectResponse.setMessage("Request was approved successfully");
+                            return ResponseEntity.ok(approveOrRejectResponse);
+
+                        } else {
+                            log.error("Failed response from retailer service");
+
+                            approveOrRejectResponse.setCode("Code");
+                            approveOrRejectResponse.setTitle("Failed");
+                            approveOrRejectResponse.setMessage("Error when adding the retailer");
+                            return ResponseEntity.badRequest().body(approveOrRejectResponse);
+
+                        }
+                    } catch (Exception e){
+                        log.info("Request Failed");
+
+                        approveOrRejectResponse.setCode("Code");
+                        approveOrRejectResponse.setTitle("Failed");
+                        approveOrRejectResponse.setMessage("Request was failed");
+                        return ResponseEntity.badRequest().body(approveOrRejectResponse);
+                    }
+                } else if (existingReq.getUserType().equalsIgnoreCase("DISTRIBUTOR")) {
+
+                    SendDistributorAddReq sendDistributorAddReq = new SendDistributorAddReq();
+                    sendDistributorAddReq.setUserId(existingUser.getId());
+
+                    try{
+                        String code = distributorServiceClient.addDistributor(sendDistributorAddReq).getBody().getCode();
+
+                        if(code.equalsIgnoreCase("0000")){
+
+                            approveOrRejectResponse.setCode(InitConfig.SUCCESS);
+                            approveOrRejectResponse.setTitle(InitConfig.TITLE_SUCCESS);
+                            approveOrRejectResponse.setMessage("Request was approved successfully");
+                            return ResponseEntity.ok(approveOrRejectResponse);
+
+                        } else {
+                            log.error("Failed response from distributor service");
+
+                            approveOrRejectResponse.setCode("Code");
+                            approveOrRejectResponse.setTitle("Failed");
+                            approveOrRejectResponse.setMessage("Error when adding the distributor");
+                            return ResponseEntity.badRequest().body(approveOrRejectResponse);
+
+                        }
+                    } catch (Exception e){
+                        log.info("Request Failed");
+
+                        approveOrRejectResponse.setCode("Code");
+                        approveOrRejectResponse.setTitle("Failed");
+                        approveOrRejectResponse.setMessage("Request was failed");
+                        return ResponseEntity.badRequest().body(approveOrRejectResponse);
+                    }
+
+                } else {
+                    log.error("The user type is invalid");
+
+                    approveOrRejectResponse.setCode("Code");
+                    approveOrRejectResponse.setTitle("Failed");
+                    approveOrRejectResponse.setMessage("Invalid User Type");
+                    return ResponseEntity.badRequest().body(approveOrRejectResponse);
+                }
+
+            } else {
+                log.info("Req has already changed");
+
+                approveOrRejectResponse.setCode("Code");
+                approveOrRejectResponse.setTitle("Failed");
+                approveOrRejectResponse.setMessage("Request has already being altered");
+                return ResponseEntity.badRequest().body(approveOrRejectResponse);
+            }
+        } else if (command.equalsIgnoreCase("reject")) {
+            log.info("Reject flow");
+
+            UserApproval existingReq = userApprovalRepository.findById(changeApprovalReq.getApprovalReqId())
+                    .orElseThrow(null);
+
+            if(existingReq.getStatus().equalsIgnoreCase("pending")){
+                existingReq.setStatus("REJECTED");
+                User adminUser = userRepository.findByUsername(changeApprovalReq.getAdminUsername())
+                        .orElseThrow(()-> new UsernameNotFoundException("Username Not Found"));
+                String adminUserId = adminUser.getId();
+                existingReq.setAdminUserId(adminUserId);
+                userApprovalRepository.save(existingReq);
+
+                User existingUser = userRepository.findByUsername(existingReq.getUsername())
+                        .orElseThrow(()-> new UsernameNotFoundException("User Not Found"));
+                existingUser.setUpdatedTime(LocalDateTime.now());
+                existingUser.setStatus("REJECTED");
+                userRepository.save(existingUser);
+
+                approveOrRejectResponse.setCode(InitConfig.SUCCESS);
+                approveOrRejectResponse.setTitle(InitConfig.TITLE_SUCCESS);
+                approveOrRejectResponse.setMessage("Request was rejected successfully");
+                return ResponseEntity.ok(approveOrRejectResponse);
+
+            } else {
+                log.info("Req has already changed");
+
+                approveOrRejectResponse.setCode("Code");
+                approveOrRejectResponse.setTitle("Failed");
+                approveOrRejectResponse.setMessage("Request has already being altered");
+                return ResponseEntity.badRequest().body(approveOrRejectResponse);
+            }
+
+        } else {
+            log.info("Invalid Command");
+
+            approveOrRejectResponse.setCode("Code");
+            approveOrRejectResponse.setTitle("Failed");
+            approveOrRejectResponse.setMessage("Invalid Command");
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(approveOrRejectResponse);
         }
     }
 
