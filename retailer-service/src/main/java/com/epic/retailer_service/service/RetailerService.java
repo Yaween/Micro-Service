@@ -269,11 +269,14 @@ public class RetailerService {
                 List<Map<String, Object>> filteredList = new ArrayList<>();
                 for (AddDistributorReq distributorReq : addDistributorReqList) {
                     Map<String, Object> map = new HashMap<>();
-                    if(distributorReq.getStatus().equalsIgnoreCase("PENDING")){
-                        map.put("id", distributorReq.getId());
-                        map.put("status", distributorReq.getStatus());
-                        filteredList.add(map);
-                    }
+                    map.put("id", distributorReq.getId());
+                    map.put("status", distributorReq.getStatus());
+                    filteredList.add(map);
+//                    if(distributorReq.getStatus().equalsIgnoreCase("PENDING")){
+//                        map.put("id", distributorReq.getId());
+//                        map.put("status", distributorReq.getStatus());
+//                        filteredList.add(map);
+//                    }
                 }
 
                 requestStatusCheckResponse.setCode(InitConfig.SUCCESS);
