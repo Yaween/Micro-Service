@@ -109,7 +109,7 @@ public class OrderService {
                 if(updateOrderReq.getOption().equalsIgnoreCase("APPROVE")){
 
                     sendOrderReqUpdate.setOrderId(order.getRetailerOrderId());
-                    sendOrderReqUpdate.setStatus("APPROVED");
+                    sendOrderReqUpdate.setStatus("APPROVE");
                     String code = retailerServiceClient.updateOrderReqStatus(sendOrderReqUpdate).getBody().getCode();
 
                     if(code.equalsIgnoreCase(InitConfig.SUCCESS)){
@@ -134,7 +134,7 @@ public class OrderService {
                 } else if (updateOrderReq.getOption().equalsIgnoreCase("REJECT")) {
 
                     sendOrderReqUpdate.setOrderId(order.getRetailerOrderId());
-                    sendOrderReqUpdate.setStatus("REJECTED");
+                    sendOrderReqUpdate.setStatus("REJECT");
                     String code = retailerServiceClient.updateOrderReqStatus(sendOrderReqUpdate).getBody().getCode();
 
                     if(code.equalsIgnoreCase(InitConfig.SUCCESS)){
@@ -189,5 +189,24 @@ public class OrderService {
         retrieveOrderInfoResponse.setMessage("Order info retrieved successfully");
         retrieveOrderInfoResponse.setOrderData(new OrderData(productId, productCount));
         return ResponseEntity.ok(retrieveOrderInfoResponse);
+    }
+
+    public boolean checkOrderReqStatus(CheckOrderReqStatus checkOrderReqStatus) {
+        if(orderRepository.findById(checkOrderReqStatus.getOrderId()).isPresent()){
+            Order order = orderRepository.findById(checkOrderReqStatus.getOrderId()).
+                    orElseThrow(null);
+            String status = order.getStatus();
+
+            if (status.equalsIgnoreCase("PENDING")){
+                log.info("Request is pending");
+                return true;
+
+            } else {
+                log.info("Request is altered");
+                return false;
+            }
+        } else {
+            return false;
+        }
     }
 }

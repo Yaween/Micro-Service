@@ -29,9 +29,21 @@ public class InitConfig {
     public static final String DISTRIBUTOR_REQUEST_NOT_FOUND = "1023";
     public static final String ORDER_REQUEST_NOT_FOUND = "1024";
     public static final String PRODUCT_ID_NOT_FOUND = "1025";
+    public static final String REGISTRATION_REQ_PENDING = "change";
+    public static final String REGISTRATION_REQ_FAILED = "change";
 
     //titles
     public static final String TITLE_SUCCESS = "SUCCESS";
     public static final String TITLE_FAILED = "FAILED";
+
+    //user types
+    public static final String ADMIN = "ADMIN";
+    public static final String DISTRIBUTOR = "DISTRIBUTOR";
+    public static final String RETAILER = "RETAILER";
+
+    //status
+    public static final String STATUS_PENDING = "PENDING";
+    public static final String STATUS_APPROVED = "APPROVED";
+    public static final String STATUS_REJECTED = "REJECTED";
 
 }

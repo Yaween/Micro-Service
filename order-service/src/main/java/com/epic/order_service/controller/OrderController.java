@@ -42,4 +42,11 @@ public class OrderController {
             @RequestBody RetrieveOrderReq retrieveOrderReq) {
         return orderService.retrieveOrderInfo(retrieveOrderReq);
     }
+
+    @PostMapping("/check-req-status")
+    public boolean checkOrderReqStatus(
+            @RequestBody CheckOrderReqStatus checkOrderReqStatus
+    ){
+        return orderService.checkOrderReqStatus(checkOrderReqStatus);
+    }
 }

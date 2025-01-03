@@ -160,56 +160,82 @@ public class RetailerService {
 
         Retailer retailer = retailerRepository.findByUserId(userId).
                 orElseThrow(()-> new RetailerNotFoundException("Retailer Not Found"));
-        SendDistributorReq sendDistributorReq = new SendDistributorReq();
-        sendDistributorReq.setRetailerId(retailer.getId());
-        sendDistributorReq.setRetailerUserId(userId);
-        sendDistributorReq.setDistributorId(distributorRequest.getDistributorId());
 
-        //saving the request in AddDistributorReq table
-        AddDistributorReq addDistributorReq = new AddDistributorReq();
-        addDistributorReq.setId(UniqueIdGenerator.generateUniqueId());
-        addDistributorReq.setRetailerId(retailer.getId());
-        addDistributorReq.setDistributorId(distributorRequest.getDistributorId());
-        addDistributorReq.setStatus("PENDING");
-        addDistributorReq.setRequestStatus("INITIALIZED");
-        addDistributorReq.setCreatedTime(LocalDateTime.now());
-        AddDistributorReq savedReq = addDistributorReqRepository.save(addDistributorReq);
+        //check distributor already exist in mapper table
+        SendDistributorCheckReq sendDistributorCheckReq = new SendDistributorCheckReq(retailer.getId(), distributorRequest.getDistributorId());
+        String codeDistributorCheck = distributorServiceClient.checkDistributorAvailability(sendDistributorCheckReq).getBody().getCode();
 
-        sendDistributorReq.setRetailerReqId(savedReq.getId());
-
-        try{
-            log.info("Request sending to distributor");
-            String code = distributorServiceClient.requestDistributor(sendDistributorReq).getBody().getCode();
-
-            if(code.equals(InitConfig.SUCCESS)){
-                log.info("Distributor request was successful");
-
-                AddDistributorReq existingReq = addDistributorReqRepository.findById(savedReq.getId()).
-                        orElseThrow(null);
-                existingReq.setRequestStatus("SENT TO DISTRIBUTOR");
-                addDistributorReqRepository.save(existingReq);
-                log.info("Request Status was updated");
-
-                requestDistributorResponse.setCode(InitConfig.SUCCESS);
-                requestDistributorResponse.setTitle(InitConfig.TITLE_SUCCESS);
-                requestDistributorResponse.setMessage("Request was sent to the distributor successfully");
-                return ResponseEntity.ok(requestDistributorResponse);
-
-            } else {
-                log.info("Response was not successful");
-
-                requestDistributorResponse.setCode(InitConfig.UNSUCCESSFUL_RESPONSE);
-                requestDistributorResponse.setTitle(InitConfig.TITLE_FAILED);
-                requestDistributorResponse.setMessage("Unsuccessful Response from Distributor");
-                return ResponseEntity.badRequest().body(requestDistributorResponse);
-            }
-        } catch (Exception e){
-            log.info("Error occurred while requesting distributor");
+        if(codeDistributorCheck == null || codeDistributorCheck.isEmpty()){
+            log.info("Distributor availability check failed");
 
             requestDistributorResponse.setCode(InitConfig.REQUEST_FAILED);
             requestDistributorResponse.setTitle(InitConfig.TITLE_FAILED);
-            requestDistributorResponse.setMessage("Error occurred while requesting distributor");
+            requestDistributorResponse.setMessage("Distributor availability check failed");
             return ResponseEntity.badRequest().body(requestDistributorResponse);
+        }
+
+        if (codeDistributorCheck.equalsIgnoreCase(InitConfig.SUCCESS)){
+            log.info("Distributor and retailer connection found");
+
+            requestDistributorResponse.setCode("Code");
+            requestDistributorResponse.setTitle(InitConfig.TITLE_FAILED);
+            requestDistributorResponse.setMessage("The distributor is already in the system");
+            return ResponseEntity.ok(requestDistributorResponse);
+
+        } else {
+            log.info("Distributor retailer connection not found");
+
+            SendDistributorReq sendDistributorReq = new SendDistributorReq();
+            sendDistributorReq.setRetailerId(retailer.getId());
+            sendDistributorReq.setRetailerUserId(userId);
+            sendDistributorReq.setDistributorId(distributorRequest.getDistributorId());
+
+            //saving the request in AddDistributorReq table
+            AddDistributorReq addDistributorReq = new AddDistributorReq();
+            addDistributorReq.setId(UniqueIdGenerator.generateUniqueId());
+            addDistributorReq.setRetailerId(retailer.getId());
+            addDistributorReq.setDistributorId(distributorRequest.getDistributorId());
+            addDistributorReq.setStatus("PENDING");
+            addDistributorReq.setRequestStatus("INITIALIZED");
+            addDistributorReq.setCreatedTime(LocalDateTime.now());
+            AddDistributorReq savedReq = addDistributorReqRepository.save(addDistributorReq);
+
+            sendDistributorReq.setRetailerReqId(savedReq.getId());
+
+            try{
+                log.info("Request sending to distributor");
+                String code = distributorServiceClient.requestDistributor(sendDistributorReq).getBody().getCode();
+
+                if(code.equals(InitConfig.SUCCESS)){
+                    log.info("Distributor request was successful");
+
+                    AddDistributorReq existingReq = addDistributorReqRepository.findById(savedReq.getId()).
+                            orElseThrow(null);
+                    existingReq.setRequestStatus("SENT TO DISTRIBUTOR");
+                    addDistributorReqRepository.save(existingReq);
+                    log.info("Request Status was updated");
+
+                    requestDistributorResponse.setCode(InitConfig.SUCCESS);
+                    requestDistributorResponse.setTitle(InitConfig.TITLE_SUCCESS);
+                    requestDistributorResponse.setMessage("Request was sent to the distributor successfully");
+                    return ResponseEntity.ok(requestDistributorResponse);
+
+                } else {
+                    log.info("Response was not successful");
+
+                    requestDistributorResponse.setCode(InitConfig.UNSUCCESSFUL_RESPONSE);
+                    requestDistributorResponse.setTitle(InitConfig.TITLE_FAILED);
+                    requestDistributorResponse.setMessage("Unsuccessful Response from Distributor");
+                    return ResponseEntity.badRequest().body(requestDistributorResponse);
+                }
+            } catch (Exception e){
+                log.info("Error occurred while requesting distributor");
+
+                requestDistributorResponse.setCode(InitConfig.REQUEST_FAILED);
+                requestDistributorResponse.setTitle(InitConfig.TITLE_FAILED);
+                requestDistributorResponse.setMessage("Error occurred while requesting distributor");
+                return ResponseEntity.badRequest().body(requestDistributorResponse);
+            }
         }
     }
 
@@ -674,7 +700,7 @@ public class RetailerService {
         OrderRequest existingReq = orderRequestRepository.findById(updateOrderReqStatus.getOrderId())
                 .orElseThrow(()-> new OrderRequestNotFoundException("Order Request Not Found"));
 
-        if(existingReq.getStatus().equalsIgnoreCase("PENDING")){
+        if(existingReq.getStatus().equalsIgnoreCase("PENDING") || existingReq.getStatus().equalsIgnoreCase("RECEIVED BY DISTRIBUTOR")){
             log.info("Changing the status");
 
             if(updateOrderReqStatus.getStatus().equalsIgnoreCase("APPROVE")){
