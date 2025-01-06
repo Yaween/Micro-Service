@@ -62,7 +62,7 @@ public class UserService {
 
             registerResponse.setCode(InitConfig.EMAIL_TAKEN);
             registerResponse.setTitle(InitConfig.TITLE_FAILED);
-            registerResponse.setMessage("Email is already taken.");
+            registerResponse.setMessage("A User is already registered with that email");
             return ResponseEntity.badRequest().body(registerResponse);
         }
 
@@ -72,7 +72,7 @@ public class UserService {
 
             registerResponse.setCode(InitConfig.CONTACT_NO_TAKEN);
             registerResponse.setTitle(InitConfig.TITLE_FAILED);
-            registerResponse.setMessage("Contact Number is already taken.");
+            registerResponse.setMessage("A User is already registered with that number");
             return ResponseEntity.badRequest().body(registerResponse);
         }
 

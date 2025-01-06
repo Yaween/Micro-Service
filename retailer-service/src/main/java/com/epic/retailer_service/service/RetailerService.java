@@ -202,6 +202,13 @@ public class RetailerService {
 
             sendDistributorReq.setRetailerReqId(savedReq.getId());
 
+            if(addDistributorReqRepository.findByRetailerIdAndDistributorId
+                    (retailer.getId(), distributorRequest.getDistributorId()).isPresent()){
+                log.info("Request have been already send");
+
+            }
+
+
             try{
                 log.info("Request sending to distributor");
                 String code = distributorServiceClient.requestDistributor(sendDistributorReq).getBody().getCode();
@@ -222,6 +229,12 @@ public class RetailerService {
 
                 } else {
                     log.info("Response was not successful");
+
+                    AddDistributorReq existingReq = addDistributorReqRepository.findById(savedReq.getId()).
+                            orElseThrow(null);
+                    existingReq.setRequestStatus("FAILED");
+                    addDistributorReqRepository.save(existingReq);
+                    log.info("Req saved as a failed due to unsuccessful response");
 
                     requestDistributorResponse.setCode(InitConfig.UNSUCCESSFUL_RESPONSE);
                     requestDistributorResponse.setTitle(InitConfig.TITLE_FAILED);

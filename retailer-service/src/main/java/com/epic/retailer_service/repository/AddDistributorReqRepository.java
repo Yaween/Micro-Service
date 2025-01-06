@@ -11,4 +11,5 @@ import java.util.Optional;
 public interface AddDistributorReqRepository extends JpaRepository<AddDistributorReq, String> {
 //    Optional<AddDistributorReq> findByRetailerId(String retailerId);
     List<AddDistributorReq> findByRetailerId(String retailerId);
+    Optional<AddDistributorReq> findByRetailerIdAndDistributorId(String retailerId, String distributorId);
 }
