@@ -43,12 +43,20 @@ public class AdminService {
         if (authorizationHeader == null || authorizationHeader.isEmpty()) {
             log.warn("Authorization header is missing or empty. Request cannot be processed.");
 
-            getApprovalListResponse.setCode("Code");
-            getApprovalListResponse.setTitle("Failed");
+            getApprovalListResponse.setCode(InitConfig.TOKEN_MISSING);
+            getApprovalListResponse.setTitle(InitConfig.TITLE_UNAUTHORIZED);
             getApprovalListResponse.setMessage("Token is missing");
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(getApprovalListResponse);
         }
 
+        if(userRepository.findByUsername(getApprovalReq.getUsername()).isEmpty()){
+            log.info("admin not found");
+
+            getApprovalListResponse.setCode(InitConfig.ADMIN_NOT_FOUND);
+            getApprovalListResponse.setTitle(InitConfig.TITLE_FAILED);
+            getApprovalListResponse.setMessage("Admin with that username is not found");
+            return ResponseEntity.badRequest().body(getApprovalListResponse);
+        }
         // Extract and validate the token
         String token = authorizationHeader.substring(7);
         boolean tokenValidity = requestValidator.validateReq(getApprovalReq.getUsername(), "ADMIN", token);
@@ -70,8 +78,15 @@ public class AdminService {
                 }
             }
 
-            getApprovalListResponse.setCode("0000");
-            getApprovalListResponse.setTitle("Success");
+            if(filteredList.isEmpty()){
+                getApprovalListResponse.setCode(InitConfig.SUCCESS);
+                getApprovalListResponse.setTitle(InitConfig.TITLE_SUCCESS);
+                getApprovalListResponse.setMessage("No Any Pending Requests");
+                return ResponseEntity.ok(getApprovalListResponse);
+            }
+
+            getApprovalListResponse.setCode(InitConfig.SUCCESS);
+            getApprovalListResponse.setTitle(InitConfig.TITLE_SUCCESS);
             getApprovalListResponse.setMessage("List retrieved Successfully");
             getApprovalListResponse.setApprovalList(filteredList);
             return ResponseEntity.ok(getApprovalListResponse);
@@ -79,8 +94,8 @@ public class AdminService {
         } else {
             log.info("Token invalid or expired");
 
-            getApprovalListResponse.setCode("Code");
-            getApprovalListResponse.setTitle("Failed");
+            getApprovalListResponse.setCode(InitConfig.TOKEN_INVALID_EXPIRED);
+            getApprovalListResponse.setTitle(InitConfig.TITLE_UNAUTHORIZED);
             getApprovalListResponse.setMessage("Token is Invalid or Expired");
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(getApprovalListResponse);
         }
@@ -93,8 +108,8 @@ public class AdminService {
         if (authorizationHeader == null || authorizationHeader.isEmpty()) {
             log.warn("Authorization header is missing or empty. Request cannot be processed.");
 
-            approveOrRejectResponse.setCode("Code");
-            approveOrRejectResponse.setTitle("Failed");
+            approveOrRejectResponse.setCode(InitConfig.TOKEN_MISSING);
+            approveOrRejectResponse.setTitle(InitConfig.TITLE_UNAUTHORIZED);
             approveOrRejectResponse.setMessage("Token is missing");
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(approveOrRejectResponse);
         }
@@ -106,8 +121,8 @@ public class AdminService {
         if(!tokenValidity){
             log.info("Token is invalid or expired");
 
-            approveOrRejectResponse.setCode("Code");
-            approveOrRejectResponse.setTitle("Failed");
+            approveOrRejectResponse.setCode(InitConfig.TOKEN_INVALID_EXPIRED);
+            approveOrRejectResponse.setTitle(InitConfig.TITLE_UNAUTHORIZED);
             approveOrRejectResponse.setMessage("Token is Invalid or Expired");
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(approveOrRejectResponse);
         }
@@ -117,8 +132,8 @@ public class AdminService {
         if(userApprovalRepository.findById(changeApprovalReq.getApprovalReqId()).isEmpty()){
             log.info("Approval request id is missing");
 
-            approveOrRejectResponse.setCode("Code");
-            approveOrRejectResponse.setTitle("Failed");
+            approveOrRejectResponse.setCode(InitConfig.REQUEST_NOT_FOUND);
+            approveOrRejectResponse.setTitle(InitConfig.TITLE_FAILED);
             approveOrRejectResponse.setMessage("Approval request not found");
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(approveOrRejectResponse);
         }
@@ -161,8 +176,8 @@ public class AdminService {
                         } else {
                             log.error("Failed response from retailer service");
 
-                            approveOrRejectResponse.setCode("Code");
-                            approveOrRejectResponse.setTitle("Failed");
+                            approveOrRejectResponse.setCode(code);
+                            approveOrRejectResponse.setTitle(InitConfig.TITLE_FAILED);
                             approveOrRejectResponse.setMessage("Error when adding the retailer");
                             return ResponseEntity.badRequest().body(approveOrRejectResponse);
 
@@ -170,8 +185,8 @@ public class AdminService {
                     } catch (Exception e){
                         log.info("Request Failed");
 
-                        approveOrRejectResponse.setCode("Code");
-                        approveOrRejectResponse.setTitle("Failed");
+                        approveOrRejectResponse.setCode(InitConfig.REQUEST_FAILED);
+                        approveOrRejectResponse.setTitle(InitConfig.TITLE_FAILED);
                         approveOrRejectResponse.setMessage("Request was failed");
                         return ResponseEntity.badRequest().body(approveOrRejectResponse);
                     }
@@ -193,8 +208,8 @@ public class AdminService {
                         } else {
                             log.error("Failed response from distributor service");
 
-                            approveOrRejectResponse.setCode("Code");
-                            approveOrRejectResponse.setTitle("Failed");
+                            approveOrRejectResponse.setCode(code);
+                            approveOrRejectResponse.setTitle(InitConfig.TITLE_FAILED);
                             approveOrRejectResponse.setMessage("Error when adding the distributor");
                             return ResponseEntity.badRequest().body(approveOrRejectResponse);
 
@@ -202,8 +217,8 @@ public class AdminService {
                     } catch (Exception e){
                         log.info("Request Failed");
 
-                        approveOrRejectResponse.setCode("Code");
-                        approveOrRejectResponse.setTitle("Failed");
+                        approveOrRejectResponse.setCode(InitConfig.REQUEST_FAILED);
+                        approveOrRejectResponse.setTitle(InitConfig.TITLE_FAILED);
                         approveOrRejectResponse.setMessage("Request was failed");
                         return ResponseEntity.badRequest().body(approveOrRejectResponse);
                     }
@@ -211,8 +226,8 @@ public class AdminService {
                 } else {
                     log.error("The user type is invalid");
 
-                    approveOrRejectResponse.setCode("Code");
-                    approveOrRejectResponse.setTitle("Failed");
+                    approveOrRejectResponse.setCode(InitConfig.ROLE_INVALID);
+                    approveOrRejectResponse.setTitle(InitConfig.TITLE_FAILED);
                     approveOrRejectResponse.setMessage("Invalid User Type");
                     return ResponseEntity.badRequest().body(approveOrRejectResponse);
                 }
@@ -220,8 +235,8 @@ public class AdminService {
             } else {
                 log.info("Req has already changed");
 
-                approveOrRejectResponse.setCode("Code");
-                approveOrRejectResponse.setTitle("Failed");
+                approveOrRejectResponse.setCode(InitConfig.REQUEST_ALREADY_ALTERED);
+                approveOrRejectResponse.setTitle(InitConfig.TITLE_FAILED);
                 approveOrRejectResponse.setMessage("Request has already being altered");
                 return ResponseEntity.badRequest().body(approveOrRejectResponse);
             }
@@ -253,8 +268,8 @@ public class AdminService {
             } else {
                 log.info("Req has already changed");
 
-                approveOrRejectResponse.setCode("Code");
-                approveOrRejectResponse.setTitle("Failed");
+                approveOrRejectResponse.setCode(InitConfig.REQUEST_ALREADY_ALTERED);
+                approveOrRejectResponse.setTitle(InitConfig.TITLE_FAILED);
                 approveOrRejectResponse.setMessage("Request has already being altered");
                 return ResponseEntity.badRequest().body(approveOrRejectResponse);
             }
@@ -262,8 +277,8 @@ public class AdminService {
         } else {
             log.info("Invalid Command");
 
-            approveOrRejectResponse.setCode("Code");
-            approveOrRejectResponse.setTitle("Failed");
+            approveOrRejectResponse.setCode(InitConfig.INVALID_COMMAND);
+            approveOrRejectResponse.setTitle(InitConfig.TITLE_FAILED);
             approveOrRejectResponse.setMessage("Invalid Command");
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(approveOrRejectResponse);
         }
@@ -277,8 +292,8 @@ public class AdminService {
                 || loginAdminReq.getPassword() == null || loginAdminReq.getPassword().isEmpty()){
             log.info("Request is missing values");
 
-            adminLoginResponse.setCode("Code");
-            adminLoginResponse.setTitle("Failed");
+            adminLoginResponse.setCode(InitConfig.MISSING_FIELDS);
+            adminLoginResponse.setTitle(InitConfig.TITLE_FAILED);
             adminLoginResponse.setMessage("Missing Values in the request");
             return ResponseEntity.badRequest().body(adminLoginResponse);
         }
@@ -292,8 +307,8 @@ public class AdminService {
             if(!existingUser.getUserType().equalsIgnoreCase("ADMIN")){
                 log.info("User is not an Admin");
 
-                adminLoginResponse.setCode("Code");
-                adminLoginResponse.setTitle("Failed");
+                adminLoginResponse.setCode(InitConfig.ADMIN_NOT_FOUND);
+                adminLoginResponse.setTitle(InitConfig.TITLE_FAILED);
                 adminLoginResponse.setMessage("User is not an Admin");
                 return ResponseEntity.badRequest().body(adminLoginResponse);
             }
@@ -305,16 +320,16 @@ public class AdminService {
                 String token = jwtGenerator.generateToken(loginAdminReq.getUsername(), "ADMIN");
                 log.info("Token Generated");
 
-                adminLoginResponse.setCode("0000");
-                adminLoginResponse.setTitle("Success");
+                adminLoginResponse.setCode(InitConfig.SUCCESS);
+                adminLoginResponse.setTitle(InitConfig.TITLE_SUCCESS);
                 adminLoginResponse.setMessage("Login Successful and Token generated");
                 adminLoginResponse.setToken(new TokenData(token));
 
             } else {
                 log.info("Password incorrect");
 
-                adminLoginResponse.setCode("Code");
-                adminLoginResponse.setTitle("Failed");
+                adminLoginResponse.setCode(InitConfig.PASSWORD_INCORRECT);
+                adminLoginResponse.setTitle(InitConfig.TITLE_FAILED);
                 adminLoginResponse.setMessage("Password entered is incorrect");
             }
             return ResponseEntity.ok(adminLoginResponse);
@@ -322,8 +337,8 @@ public class AdminService {
         } else {
             log.info("User not found");
 
-            adminLoginResponse.setCode("Code");
-            adminLoginResponse.setTitle("Failed");
+            adminLoginResponse.setCode(InitConfig.USERNAME_NOT_FOUND);
+            adminLoginResponse.setTitle(InitConfig.TITLE_FAILED);
             adminLoginResponse.setMessage("User with the give username is not found in the system");
             return ResponseEntity.badRequest().body(adminLoginResponse);
         }

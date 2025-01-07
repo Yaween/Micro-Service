@@ -19,7 +19,7 @@ public interface DistributorServiceClient {
     @GetMapping("/api/distributor/getAllDistributors")
     ResponseEntity<CommonResponse> getAllDistributors();
 
-    @GetMapping("/api/distributor/getAllProducts")
+    @GetMapping("/api/products/getAllProducts")
     ResponseEntity<CommonResponse> getAllProducts();
 
     @PostMapping("/api/distributor/retailer-distributor-availability")

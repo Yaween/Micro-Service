@@ -12,4 +12,5 @@ public interface AddDistributorReqRepository extends JpaRepository<AddDistributo
 //    Optional<AddDistributorReq> findByRetailerId(String retailerId);
     List<AddDistributorReq> findByRetailerId(String retailerId);
     Optional<AddDistributorReq> findByRetailerIdAndDistributorId(String retailerId, String distributorId);
+    Optional<AddDistributorReq> findByDistributorRetailerChecker(String checker);
 }

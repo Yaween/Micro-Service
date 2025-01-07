@@ -23,6 +23,9 @@ public class AddDistributorReq {
     @Column(name = "DISTRIBUTOR_ID")
     private String distributorId;
 
+    @Column(name = "DISTRIBUTOR_RETAILER")
+    private String distributorRetailerChecker;
+
     @Column(name = "STATUS")
     private String status;
 

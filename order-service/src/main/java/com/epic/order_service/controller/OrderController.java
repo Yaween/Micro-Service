@@ -44,7 +44,7 @@ public class OrderController {
     }
 
     @PostMapping("/check-req-status")
-    public boolean checkOrderReqStatus(
+    public String checkOrderReqStatus(
             @RequestBody CheckOrderReqStatus checkOrderReqStatus
     ){
         return orderService.checkOrderReqStatus(checkOrderReqStatus);

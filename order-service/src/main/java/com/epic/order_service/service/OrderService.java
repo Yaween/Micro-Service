@@ -159,7 +159,7 @@ public class OrderService {
                 } else {
                     log.info("Unidentified Option from distributor");
 
-                    updateOrderResponse.setCode("Code");
+                    updateOrderResponse.setCode(InitConfig.UNIDENTIFIED_OPTION);
                     updateOrderResponse.setTitle(InitConfig.TITLE_FAILED);
                     updateOrderResponse.setMessage("Unidentified Option");
                     return ResponseEntity.badRequest().body(updateOrderResponse);
@@ -168,7 +168,7 @@ public class OrderService {
             } else {
                 log.info("Order has already changed");
 
-                updateOrderResponse.setCode("Code");
+                updateOrderResponse.setCode(InitConfig.REQUEST_ALREADY_ALTERED);
                 updateOrderResponse.setTitle(InitConfig.TITLE_FAILED);
                 updateOrderResponse.setMessage("Order Request has already altered");
                 return ResponseEntity.badRequest().body(updateOrderResponse);
@@ -191,7 +191,7 @@ public class OrderService {
         return ResponseEntity.ok(retrieveOrderInfoResponse);
     }
 
-    public boolean checkOrderReqStatus(CheckOrderReqStatus checkOrderReqStatus) {
+    public String checkOrderReqStatus(CheckOrderReqStatus checkOrderReqStatus) {
         if(orderRepository.findById(checkOrderReqStatus.getOrderId()).isPresent()){
             Order order = orderRepository.findById(checkOrderReqStatus.getOrderId()).
                     orElseThrow(null);
@@ -199,14 +199,14 @@ public class OrderService {
 
             if (status.equalsIgnoreCase("PENDING")){
                 log.info("Request is pending");
-                return true;
+                return "PENDING";
 
             } else {
                 log.info("Request is altered");
-                return false;
+                return "ALTERED";
             }
         } else {
-            return false;
+            return "ABSENT";
         }
     }
 }

@@ -49,13 +49,13 @@ public class RetailerController {
     /**
      * // Get all available products
      */
-    @GetMapping("/get-products")
+    @PostMapping("/get-products")
     public ResponseEntity<CommonResponse> getProducts(
             @RequestHeader(value = "Authorization", required = false) String authorizationHeader,
-            @RequestBody String username
+            @RequestBody GetAllProductsReq getAllProductsReq
     ){
         log.info("Get Products Request Received");
-        return retailerService.getProducts(authorizationHeader, username);
+        return retailerService.getProducts(authorizationHeader, getAllProductsReq);
     }
 
     /**

@@ -16,7 +16,7 @@ public class AuthorizationChecker {
             log.warn("Authorization header is missing or empty. Request cannot be processed.");
 
             response.setCode(InitConfig.TOKEN_MISSING);
-            response.setTitle(InitConfig.TITLE_FAILED);
+            response.setTitle(InitConfig.TITLE_UNAUTHORIZED);
             response.setMessage("Token is missing");
             return response;
         }
@@ -29,13 +29,13 @@ public class AuthorizationChecker {
             log.info("Token invalid or expired");
 
             response.setCode(InitConfig.TOKEN_INVALID_EXPIRED);
-            response.setTitle(InitConfig.TITLE_FAILED);
+            response.setTitle(InitConfig.TITLE_UNAUTHORIZED);
             response.setMessage("Token is Invalid or Expired");
             return response;
         }
 
         response.setCode(InitConfig.TOKEN_VALID);
-        response.setTitle(InitConfig.TITLE_SUCCESS);
+        response.setTitle(InitConfig.TITLE_UNAUTHORIZED);
         response.setMessage("Token Validated");
         return response;
     }
